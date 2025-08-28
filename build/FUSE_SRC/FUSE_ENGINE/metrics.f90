@@ -111,6 +111,11 @@ contains
     beta = m_sim / m_obs           ! bias
     
     kge = 1.0 - sqrt((r-1)**2 + (alpha-1)**2 + (beta-1)**2)
+    
+    if (isnan(kge)) then
+        kge = -1.0e6                ! bad value
+    end if
+    
   end function get_KGE
 
 
@@ -148,6 +153,11 @@ contains
     beta = m_sim / m_obs                      ! bias
     
     kgep = 1.0 - sqrt((r-1)**2 + (alphap-1)**2 + (beta-1)**2)
+    
+    if (isnan(kgep)) then
+        kgep = -1.0e6                          ! bad value
+    end if
+        
   end function get_KGEp
 
 
@@ -170,6 +180,10 @@ contains
     call apply_transformation(obs_t, sim_t, transfo)
     
     nse = 1 - (sum((obs_t - sim_t)**2) / sum((obs_t - (sum(obs_t)/n))**2))
+    
+    if (isnan(nse)) then
+        nse = -1.0e6                          ! bad value
+    end if
     
   end function get_NSE
 
@@ -195,6 +209,10 @@ contains
     
     mae = sum(abs(obs_t - sim_t)) / n
     
+    if (isnan(mae)) then
+        mae = 1.0e6                          ! bad value
+    end if
+    
   end function get_MAE
 
 
@@ -217,6 +235,10 @@ contains
     call apply_transformation(obs_t, sim_t, transfo)
     
     rmse = sqrt(sum((obs_t - sim_t)**2) / n)
+    
+    if (isnan(rmse)) then
+        rmse = 1.0e6                          ! bad value
+    end if
     
   end function get_RMSE
 
