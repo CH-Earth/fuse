@@ -64,9 +64,9 @@ SUBROUTINE DEF_OUTPUT(nSpat1,nSpat2,NPSET,NTIM)
   !IERR = NF_REDEF(ncid_out); CALL HANDLE_ERR(IERR)
 
   ! define dimensions
-  IERR = NF_DEF_DIM(ncid_out,'time',NF_UNLIMITED,NTIM_DIM); CALL HANDLE_ERR(IERR) !record dimension (unlimited length)
-  IERR = NF_DEF_DIM(ncid_out,'longitude',nSpat1,lon_dim); CALL HANDLE_ERR(IERR)
-  IERR = NF_DEF_DIM(ncid_out,'latitude',nSpat2,lat_dim); CALL HANDLE_ERR(IERR)
+  IERR = NF_DEF_DIM(ncid_out,'time',NF_UNLIMITED, NTIM_DIM); CALL HANDLE_ERR(IERR) !record dimension (unlimited length)
+  IERR = NF_DEF_DIM(ncid_out,'longitude',nSpat1,   lon_dim); CALL HANDLE_ERR(IERR)
+  IERR = NF_DEF_DIM(ncid_out,'latitude',nSpat2,    lat_dim); CALL HANDLE_ERR(IERR)
   IF(.NOT.GRID_FLAG)THEN
     IERR = NF_DEF_DIM(ncid_out,'param_set',NPSET,param_dim); CALL HANDLE_ERR(IERR)
   ENDIF
@@ -141,23 +141,23 @@ SUBROUTINE DEF_OUTPUT(nSpat1,nSpat2,NPSET,NTIM)
   END DO  ! ivar
 
   ! define the time variable
-  ierr = nf_def_var(ncid_out,'time',nf_real,1,ntim_dim,ivar_id); call handle_err(ierr)
+  ierr = nf_def_var(ncid_out,'time',nf_real,1,(/ntim_dim/),ivar_id); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'units',len_trim(timeUnits),trim(timeUnits))
   call handle_err(ierr)
 
   ! define the latitude variable
-  ierr = nf_def_var(ncid_out,'latitude',nf_real,1,lat_dim,ivar_id); call handle_err(ierr)
+  ierr = nf_def_var(ncid_out,'latitude',nf_real,1,(/lat_dim/),ivar_id); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'units',8,'degreesN'); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'axis',1,'Y'); call handle_err(ierr)
 
   ! define the longitude variable
-  ierr = nf_def_var(ncid_out,'longitude',nf_real,1,lon_dim,ivar_id); call handle_err(ierr)
+  ierr = nf_def_var(ncid_out,'longitude',nf_real,1,(/lon_dim/),ivar_id); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'units',8,'degreesE'); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'axis',1,'X'); call handle_err(ierr)
 
   IF(.NOT.GRID_FLAG)THEN
     ! define the param_set variable
-    ierr = nf_def_var(ncid_out,'param_set',nf_char,1,param_dim,ivar_id); call handle_err(ierr)
+    ierr = nf_def_var(ncid_out,'param_set',nf_char,1,(/param_dim/),ivar_id); call handle_err(ierr)
     ierr = nf_put_att_text(ncid_out,ivar_id,'units',1,'-'); call handle_err(ierr)
   ENDIF
 
