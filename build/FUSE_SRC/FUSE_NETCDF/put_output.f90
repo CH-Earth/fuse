@@ -71,7 +71,7 @@ SUBROUTINE PUT_OUTPUT(iSpat1,iSpat2,ITIM,IMOD,IPAR)
   ! write the time
   tDat = timDat%dtime ! convert to actual single precision
   ierr = nf_inq_varid(ncid_out,'time',ivar_id); CALL handle_err(ierr)        ! get variable ID for time
-  ierr = nf_put_var1_real(ncid_out,ivar_id,itim,tDat); CALL handle_err(ierr) ! write time variable
+  ierr = nf_put_var1_real(ncid_out,ivar_id,(/itim/),tDat); CALL handle_err(ierr) ! write time variable
 
   ! close NetCDF file
   IERR = NF_CLOSE(ncid_out)
@@ -180,7 +180,7 @@ SUBROUTINE PUT_GOUTPUT_3D(istart_sim,istart_in,numtim,IPSET)
   time_steps_sub = time_steps(istart_in:(istart_in+numtim-1)) ! extract time for subperiod
   tDat = time_steps_sub ! convert to actual single precision
   ierr = nf_inq_varid(ncid_out,'time',ivar_id); CALL handle_err(ierr)             ! get variable ID for time
-  ierr = nf_put_vara_real(ncid_out,ivar_id,istart_sim,numtim,tDat); CALL handle_err(ierr)  ! write time variable
+  ierr = nf_put_vara_real(ncid_out,ivar_id,(/istart_sim/),(/numtim/),tDat); CALL handle_err(ierr)  ! write time variable
 
   ! close NetCDF file
   IERR = NF_CLOSE(ncid_out)

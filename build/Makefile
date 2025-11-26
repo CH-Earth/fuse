@@ -7,7 +7,7 @@
 #========================================================================
 
 # Define core directory below which everything resides
-F_MASTER = ${HOME}/fuse/
+F_MASTER = ${HOME}/Documents/analysis/diffModel/FUSE/source/fuse/
 
 # Core directory that contains FUSE source code
 F_KORE_DIR = $(F_MASTER)build/FUSE_SRC/
@@ -22,14 +22,9 @@ EXE_PATH = $(F_MASTER)bin/
 # PART 1: Define the libraries, driver programs, and executables
 #========================================================================
 
-# Define the fortran compiler. You have a few options: i) set the FC
-# variable in your environment, ii) set it when you compile this
-# Make file (e.g. make FC=ifort), iii) or if don't define it, the compiler
-# specified below is used
-ifndef FC
-	#FC = ifort
-	FC = gfortran
-endif
+# Define the fortran compiler. 
+#FC = ifort
+FC = gfortran
 
 # Define the NetCDF and HDF5 libraries. Use the libraries associated with
 # the compiler you selected above. Note that these paths are machine-dependent
@@ -41,13 +36,12 @@ ifeq "$(FC)" "ifort"
 endif
 
 ifeq "$(FC)" "gfortran"
-	NCDF_LIB_PATH = /usr/lib/x86_64-linux-gnu#${NCDF_PATH}
-	HDF_LIB_PATH = /usr/lib/x86_64-linux-gnu/hdf5/serial#${HDF_PATH}
-	INCLUDE_PATH = /usr#${IN_PATH}
+	INC_NETCDF := $(shell nf-config --fflags)
+	LIB_NETCDF := $(shell nf-config --flibs) $(shell nc-config --libs)
 endif
 
-LIBRARIES = -L$(NCDF_LIB_PATH)/lib -lnetcdff -lnetcdf -L$(HDF_LIB_PATH)/lib -lhdf5_hl -lhdf5
-INCLUDE = -I$(INCLUDE_PATH)/include -I$(INCLUDE_PATH)/include
+LIBRARIES = $(LIB_NETCDF)
+INCLUDE = $(INC_NETCDF)
 
 # Define the driver program and associated subroutines for the fidelity test
 FUSE_DRIVER = \
