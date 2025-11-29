@@ -24,6 +24,7 @@ USE fuse_fileManager,only:fuse_SetDirsUndPhiles,&         ! sets directories and
 USE model_defn,nstateFUSE=>nstate                         ! model definition structures
 USE model_defnames                                        ! defines the integer model options
 USE globaldata, ONLY: isPrint                             ! flag for printing progress to screen
+USE globaldata, only: nFUSE_eval                          ! number of fuse evaluations
 USE multiforce, ONLY: forcefile,vname_aprecip             ! model forcing structures
 USE multiforce, ONLY: AFORCE, aValid                      ! time series of lumped forcing/response data
 USE multiforce, ONLY: nspat1, nspat2                      ! grid dimensions
@@ -440,8 +441,9 @@ ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
 
   FNAME_ASCII = TRIM(OUTPUT_PATH)//TRIM(dom_id)//'_'//TRIM(FMODEL_ID)//'_sce_output.txt'
 
-  ! turn off printing to screen
-  isPrint = .false.
+  ! printing
+  isPrint    = .false.  !  ! turn off printing to screen
+  nFUSE_eval = 0        ! number of fuse eevaluations
 
   ! convert from SP used in FUSE to MSP used in SCE
   ALLOCATE(APAR_MSP(NUMPAR),BL_MSP(NUMPAR),BU_MSP(NUMPAR),URAND_MSP(NUMPAR))
@@ -450,6 +452,9 @@ ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
   BL_MSP=BL
   BU_MSP=BU
   URAND_MSP=URAND
+
+  ! set random seed
+  ISEED = 1
 
   ! open up ASCII output file
   print *, 'Creating SCE output file:', trim(FNAME_ASCII)
