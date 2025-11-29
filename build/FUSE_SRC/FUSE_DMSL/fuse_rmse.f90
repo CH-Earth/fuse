@@ -52,6 +52,11 @@ MODULE FUSE_RMSE_MODULE
     USE str_2_xtry_module                                    ! provide access to the routine str_2_xtry
     USE xtry_2_str_module                                    ! provide access to the routine xtry_2_str
 
+    ! differentiable model
+    use data_types, only: parent                             ! fuse parent data type
+    use get_parent_module, only: get_parent                  ! populate the parent data structure
+    use implicit_solve_module, only:implicit_solve           ! simple implicit solve for differnetiable ODE
+
     ! interface blocks
     USE interfaceb, ONLY:ode_int,fuse_solve                  ! provide access to FUSE_SOLVE through ODE_INT
 
@@ -92,6 +97,10 @@ MODULE FUSE_RMSE_MODULE
     CHARACTER(LEN=CLEN)                    :: MESSAGE        ! error message
     CHARACTER(LEN=CLEN)                    :: CMESSAGE       ! error message of downwind routine
     INTEGER(I4B),PARAMETER::UNT=6  !1701 ! 6
+
+    ! differentiable model
+    type(parent)                           :: fuseStruct     ! parent fuse data structure
+
 
     ! ---------------------------------------------------------------------------------------
     ! allocate state vectors
@@ -245,9 +254,38 @@ MODULE FUSE_RMSE_MODULE
                   RETURN
                END SELECT
 
-               ! temporally integrate the ordinary differential equations
-               CALL ODE_INT(FUSE_SOLVE,STATE0,STATE1,DT_SUB,DT_FULL,IERR,MESSAGE)
-               IF (IERR.NE.0) THEN; PRINT *, TRIM(MESSAGE); PAUSE; ENDIF
+              ! ----- start of soil physics code ------------------------------------------------------------
+
+              ! temporally integrate the ordinary differential equations
+              select case(diff_mode)
+
+                ! original code               
+                case(original)
+                 CALL ODE_INT(FUSE_SOLVE,STATE0,STATE1,DT_SUB,DT_FULL,IERR,MESSAGE)
+                 IF (IERR.NE.0) THEN; PRINT *, TRIM(MESSAGE); STOP 1; ENDIF
+
+                 !print*, state1
+                 !if(ITIM_IN > sim_beg+100) stop
+
+                ! differentiable code   
+                case(differentiable)
+
+                 ! populate parent fuse structure
+                 call get_parent(fuseStruct)
+                 
+                 ! solve differentiable ODEs
+                 call implicit_solve(fuseStruct, state0, state1, nState)
+                 !print*, state1
+                 !if(ITIM_IN > sim_beg+100) stop
+
+                 ! save fluxes
+                 W_FLUX = fuseStruct%flux
+
+                ! check options
+                case default; print*, "Cannot identify diff_mode"; stop 1
+              end select
+
+              ! ----- end of soil physics code --------------------------------------------------------------
 
               ! perform overland flow routing
               CALL Q_OVERLAND()

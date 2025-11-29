@@ -14,7 +14,7 @@ SUBROUTINE STR_2_XTRY(TMPSTR,X_TRY)
 USE nrtype                                            ! Numerical Recipes data types
 USE model_defn, ONLY: CSTATE,NSTATE                   ! model definitions
 USE model_defnames
-USE multistate, ONLY: STATEV                          ! model state structure
+USE data_types, ONLY: STATEV                          ! model state structure
 IMPLICIT NONE
 ! input
 TYPE(STATEV), INTENT(IN)               :: TMPSTR      ! temporary state structure
