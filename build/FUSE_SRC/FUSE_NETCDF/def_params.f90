@@ -13,7 +13,7 @@ USE nrtype                                            ! variable types, etc.
 USE model_defn                                        ! model definition (includes filename)
 USE metaparams                                        ! metadata for all model parameters
 USE multistats, ONLY: MSTATS                          ! model statistics structure
-USE multistate, only: ncid_out                        ! NetCDF output file ID
+USE globaldata, only: ncid_out                        ! NetCDF output file ID
 IMPLICIT NONE
 ! input
 INTEGER(I4B), INTENT(IN)               :: NPAR        ! number of parameter sets

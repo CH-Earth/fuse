@@ -23,6 +23,7 @@ USE fuse_fileManager,only:fuse_SetDirsUndPhiles,&         ! sets directories and
 ! data modules
 USE model_defn,nstateFUSE=>nstate                         ! model definition structures
 USE model_defnames                                        ! defines the integer model options
+USE globaldata, ONLY: isPrint                             ! flag for printing progress to screen
 USE multiforce, ONLY: forcefile,vname_aprecip             ! model forcing structures
 USE multiforce, ONLY: AFORCE, aValid                      ! time series of lumped forcing/response data
 USE multiforce, ONLY: nspat1, nspat2                      ! grid dimensions
@@ -43,10 +44,11 @@ USE multiforce, only: NUMPSET,name_psets                  ! number of parameter 
 
 USE multiforce, only: ncid_forc                           ! NetCDF forcing file ID
 USE multiforce, only: ncid_var                            ! NetCDF forcing variable ID
-USE multistate, only: ncid_out                            ! NetCDF output file ID
+USE globaldata, only: ncid_out                            ! NetCDF output file ID
 
 USE multibands                                            ! basin band stuctures
-USE multiparam, ONLY: LPARAM, PARATT, NUMPAR              ! parameter metadata structures
+USE data_types, ONLY: PARATT                              ! data type for metadata
+USE multiparam, ONLY: LPARAM, NUMPAR                      ! parameter metadata structures
 USE multistate, only: gState                              ! gridded state variables
 USE multistate, only: gState_3d                           ! gridded state variables with a time dimension
 USE multiroute, ONLY: AROUTE                              ! model routing structures
@@ -345,9 +347,9 @@ ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
 
   ! assign algorithmic control parameters for SCE
   ! convert characters to interger/MSP
-  READ (MAXN_STR,*) MAXN		 ! maximum number of trials before optimization is terminated
+  READ (MAXN_STR,*) MAXN     ! maximum number of trials before optimization is terminated
   READ (KSTOP_STR,*) KSTOP   ! number of shuffling loops the value must change by PCENTO (MAX=9)
-  READ (PCENTO_STR,*) PCENTO    ! the percentage
+  READ (PCENTO_STR,*) PCENTO ! the percentage
 
   PRINT *, 'SCE parameters read from file manager:'
   PRINT *, 'Maximum number of trials before SCE optimization is stopped (MAXN) = ', MAXN_STR
@@ -438,11 +440,13 @@ ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
 
   FNAME_ASCII = TRIM(OUTPUT_PATH)//TRIM(dom_id)//'_'//TRIM(FMODEL_ID)//'_sce_output.txt'
 
+  ! turn off printing to screen
+  isPrint = .false.
+
   ! convert from SP used in FUSE to MSP used in SCE
   ALLOCATE(APAR_MSP(NUMPAR),BL_MSP(NUMPAR),BU_MSP(NUMPAR),URAND_MSP(NUMPAR))
 
   APAR_MSP=APAR
-  PRINT *, 'BL=',BL
   BL_MSP=BL
   BU_MSP=BU
   URAND_MSP=URAND
