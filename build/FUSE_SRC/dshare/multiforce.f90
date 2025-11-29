@@ -124,9 +124,5 @@ MODULE multiforce
   REAL(sp)                              :: amult_pet=-1._dp          ! convert potential ET to mm/day
   REAL(sp)                              :: amult_q=-1._dp            ! convert runoff to mm/day
 
-  ! missing values
-  INTEGER(I4B),PARAMETER                :: NA_VALUE=-9999            ! integer designating missing values - TODO: retrieve from NetCDF file
-  REAL(SP),PARAMETER                    :: NA_VALUE_SP=-9999         ! integer designating missing values - TODO: retrieve from NetCDF file
-
   ! --------------------------------------------------------------------------------------
 END MODULE multiforce

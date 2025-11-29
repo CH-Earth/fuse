@@ -19,7 +19,7 @@ SUBROUTINE DEF_OUTPUT(nSpat1,nSpat2,NPSET,NTIM)
   USE multiforce, only: name_psets,time_steps           ! dimension arrays
   USE multiforce, only: latUnits,lonUnits               ! units string
   USE multiforce, only: timeUnits                       ! units string
-  USE multistate, only: ncid_out                        ! NetCDF output file ID
+  USE globaldata, only: ncid_out                        ! NetCDF output file ID
 
   IMPLICIT NONE
 

@@ -7,7 +7,6 @@
 ! ---------------------------------------------------------------------------------------
 MODULE multiparam
  USE nrtype
- USE model_defn,ONLY:NTDH_MAX
  USE data_types,ONLY:par_id,parinfo,paradj,pardvd
  ! --------------------------------------------------------------------------------------
  INTEGER(I4B), PARAMETER               :: MAXPAR=50   ! maximum number of parameters for a single model

@@ -18,10 +18,4 @@ MODULE multistate
  TYPE(STATEV)                          :: DYDT_OLD   ! (derivative of model states for final solution)
  TYPE(M_TIME)                          :: HSTATE     ! (time interval to advance model states)
 
- ! NetCDF
- integer(i4b)                          :: ncid_out=-1              ! NetCDF output file ID
-
- ! initial store fraction (initialization)
- real(sp),parameter::fracState0=0.25_sp
-
 END MODULE multistate
