@@ -46,7 +46,8 @@ USE multiforce, only: ncid_var                            ! NetCDF forcing varia
 USE multistate, only: ncid_out                            ! NetCDF output file ID
 
 USE multibands                                            ! basin band stuctures
-USE multiparam, ONLY: LPARAM, PARATT, NUMPAR              ! parameter metadata structures
+USE data_types, ONLY: PARATT                              ! data type for metadata
+USE multiparam, ONLY: LPARAM, NUMPAR                      ! parameter metadata structures
 USE multistate, only: gState                              ! gridded state variables
 USE multistate, only: gState_3d                           ! gridded state variables with a time dimension
 USE multiroute, ONLY: AROUTE                              ! model routing structures
