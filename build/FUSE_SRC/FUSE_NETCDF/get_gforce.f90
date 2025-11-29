@@ -2,6 +2,7 @@ module get_gforce_module
 USE nrtype
 USE netcdf
 USE time_io
+USE globaldata, only: NA_VALUE, NA_VALUE_SP                     ! missing value
 implicit none
 private
 public::read_ginfo
@@ -75,7 +76,6 @@ contains
  USE multiforce,only:latUnits,lonUnits,timeUnits       ! units string for time
  USE multiforce,only:vname_dtime                       ! variable name: time sice reference time
  USE multiforce, only: nForce, nInput                  ! number of parameter set and their names
- USE multiforce, only: NA_VALUE                        ! NA_VALUE for the forcing
 
 #ifdef __MPI__
  use mpi

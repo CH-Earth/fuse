@@ -147,11 +147,12 @@ SUBROUTINE GET_MBANDS_INFO(ELEV_BANDS_NC,err,message)
 use nrtype,only:I4B,LGT,SP
 use utilities_dmsl_kit_FUSE,only:getSpareUnit,stripTrailString
 USE fuse_fileManager,only:INPUT_PATH,SETNGS_PATH      ! defines data directory
-USE fuse_fileManager,only:MBANDS_NC      							! defines elevation bands
+USE fuse_fileManager,only:MBANDS_NC                   ! defines elevation bands
 
 USE multibands,only:N_BANDS,MBANDS,MBANDS_INFO_3d,Z_FORCING,&
-										Z_FORCING_grid,elev_mask          ! model band structures
-USE multiforce,only:nspat1,nspat2,startSpat2,NA_VALUE_SP                     ! dimension lengths, na_value
+                    Z_FORCING_grid,elev_mask          ! model band structures
+USE multiforce,only:nspat1,nspat2,startSpat2          ! dimension lengths
+USE globaldata,only:NA_VALUE_SP     
 
 IMPLICIT NONE
 ! dummies

@@ -15,7 +15,7 @@ SUBROUTINE PUT_OUTPUT(iSpat1,iSpat2,ITIM,IMOD,IPAR)
   USE varextract_module                                 ! interface for the function to extract variables
   USE fuse_fileManager,only: Q_ONLY                     ! only write streamflow to output file?
   USE multiforce,ONLY: timDat                           ! time data
-  USE multistate, only: ncid_out                        ! NetCDF output file ID
+  USE globaldata, only: ncid_out                        ! NetCDF output file ID
 
   IMPLICIT NONE
   ! input
@@ -71,7 +71,7 @@ SUBROUTINE PUT_OUTPUT(iSpat1,iSpat2,ITIM,IMOD,IPAR)
   ! write the time
   tDat = timDat%dtime ! convert to actual single precision
   ierr = nf_inq_varid(ncid_out,'time',ivar_id); CALL handle_err(ierr)        ! get variable ID for time
-  ierr = nf_put_var1_real(ncid_out,ivar_id,itim,tDat); CALL handle_err(ierr) ! write time variable
+  ierr = nf_put_var1_real(ncid_out,ivar_id,(/itim/),tDat); CALL handle_err(ierr) ! write time variable
 
   ! close NetCDF file
   IERR = NF_CLOSE(ncid_out)
@@ -95,10 +95,10 @@ SUBROUTINE PUT_GOUTPUT_3D(istart_sim,istart_in,numtim,IPSET)
   USE fuse_fileManager,only: Q_ONLY                     ! only write streamflow to output file?
 
   USE multiforce, ONLY: timDat,time_steps               ! time data
-  USE multistate, only: ncid_out                        ! NetCDF output file ID
   USE multiforce, ONLY: nspat1,nspat2,startSpat2        ! spatial dimensions
   USE multiforce, ONLY: gForce_3d                       ! test only
-  USE multiforce, only: GRID_FLAG                          ! .true. if distributed
+  USE multiforce, only: GRID_FLAG                       ! .true. if distributed
+  USE globaldata, only: ncid_out                        ! NetCDF output file ID
 
   IMPLICIT NONE
 
@@ -180,7 +180,7 @@ SUBROUTINE PUT_GOUTPUT_3D(istart_sim,istart_in,numtim,IPSET)
   time_steps_sub = time_steps(istart_in:(istart_in+numtim-1)) ! extract time for subperiod
   tDat = time_steps_sub ! convert to actual single precision
   ierr = nf_inq_varid(ncid_out,'time',ivar_id); CALL handle_err(ierr)             ! get variable ID for time
-  ierr = nf_put_vara_real(ncid_out,ivar_id,istart_sim,numtim,tDat); CALL handle_err(ierr)  ! write time variable
+  ierr = nf_put_vara_real(ncid_out,ivar_id,(/istart_sim/),(/numtim/),tDat); CALL handle_err(ierr)  ! write time variable
 
   ! close NetCDF file
   IERR = NF_CLOSE(ncid_out)

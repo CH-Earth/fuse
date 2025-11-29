@@ -13,7 +13,8 @@ SUBROUTINE GETPAR_STR(PARNAME,METADAT)
 ! Inserts parameter metadata into data structures
 ! ---------------------------------------------------------------------------------------
 USE nrtype                                            ! variable types, etc.
-USE multiparam, ONLY : PARATT, PARMETA                ! derived type for parameter metadata
+USE data_types, ONLY : PARATT                         ! derived type for parameter metadata
+USE multiparam, ONLY : PARMETA                        ! parameter metadata
 IMPLICIT NONE
 ! input
 CHARACTER(*), INTENT(IN)               :: PARNAME     ! parameter name
