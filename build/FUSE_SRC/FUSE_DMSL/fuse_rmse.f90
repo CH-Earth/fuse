@@ -23,6 +23,7 @@ MODULE FUSE_RMSE_MODULE
     USE model_defn, ONLY:NSTATE,SMODL                        ! number of state variables
     USE model_defnames                                       ! integer model definitions
     USE globaldata, ONLY: isPrint                            ! flag for printing progress to screen
+    USE globaldata, only: nFUSE_eval                         ! number of fuse evaluations
     USE globaldata, ONLY: fracstate0                         ! fraction of initial state (used for initialization)
     USE globaldata, ONLY: NA_VALUE, NA_VALUE_SP              ! NA_VALUE for the forcing
     USE multiparam, ONLY: LPARAM,NUMPAR,MPARAM               ! list of model parameters
@@ -395,7 +396,7 @@ MODULE FUSE_RMSE_MODULE
       CALL MEAN_STATS()
       RMSE = MSTATS%RAW_RMSE
 
-      print*, "NSE = ", MSTATS%NASH_SUTT
+      write(*,'(i6,1x,a6,1x,f12.6,1x)') nFUSE_eval, "NSE = ", MSTATS%NASH_SUTT
 
     ENDIF
 

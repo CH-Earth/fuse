@@ -18,4 +18,7 @@ MODULE globaldata
  ! print flag
  logical(lgt)           :: isPrint=.true.
 
+ ! number of fuse evaluations
+ integer(i4b), save     :: nFUSE_eval    
+
 end MODULE globaldata
