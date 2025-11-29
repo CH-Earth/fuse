@@ -59,13 +59,15 @@ DRIVER_EX = fuse.exe
 #========================================================================
 
 # Define directories
-NUMREC_DIR = $(F_KORE_DIR)FUSE_NR
-HOOKUP_DIR = $(F_KORE_DIR)FUSE_HOOK
-DRIVER_DIR = $(F_KORE_DIR)FUSE_DMSL
-NETCDF_DIR = $(F_KORE_DIR)FUSE_NETCDF
-ENGINE_DIR = $(F_KORE_DIR)FUSE_ENGINE
-SCE_DIR    = $(F_KORE_DIR)FUSE_SCE
-TIME_DIR   = $(F_KORE_DIR)FUSE_TIME
+NUMREC_DIR  = $(F_KORE_DIR)FUSE_NR
+HOOKUP_DIR  = $(F_KORE_DIR)FUSE_HOOK
+DRIVER_DIR  = $(F_KORE_DIR)FUSE_DMSL
+NETCDF_DIR  = $(F_KORE_DIR)FUSE_NETCDF
+DSHARE_DIR  = $(F_KORE_DIR)dshare
+PHYSICS_DIR = $(F_KORE_DIR)physics
+ENGINE_DIR  = $(F_KORE_DIR)FUSE_ENGINE
+SCE_DIR     = $(F_KORE_DIR)FUSE_SCE
+TIME_DIR    = $(F_KORE_DIR)FUSE_TIME
 
 # Utility modules
 FUSE_UTILMS= \
@@ -83,6 +85,7 @@ NRUTIL = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NRUTIL))
 # Data modules
 FUSE_DATAMS=    \
   model_defn.f90 \
+	data_types.f90 \
 	model_defnames.f90 \
 	multiconst.f90 \
 	multiforce.f90 \
@@ -93,7 +96,7 @@ FUSE_DATAMS=    \
 	multiroute.f90 \
 	multistats.f90 \
 	model_numerix.f90
-DATAMS = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_DATAMS))
+DATAMS = $(patsubst %, $(DSHARE_DIR)/%, $(FUSE_DATAMS))
 
 # Time I/O modules
 FUSE_TIMEMS=    \
@@ -121,6 +124,22 @@ FUSE_NR_SUB= \
 	ludcmp.f90 lubksb.f90 svbksb.f90 svdcmp.f90 pythag.f90 \
 	gammln.f90 gammp.f90 gcf.f90 gser.f90
 NR_SUB = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NR_SUB))
+
+# FUSE physics
+FUSE_PHYSICS= \
+	get_parent.f90 \
+	qsatexcess_diff.f90 \
+	evap_upper_diff.f90 \
+	evap_lower_diff.f90 \
+	qinterflow_diff.f90 \
+	qpercolate_diff.f90 \
+	q_baseflow_diff.f90 \
+	q_misscell_diff.f90 \
+	mstate_rhs_diff.f90 \
+	mod_derivs_diff.f90 \
+	fix_ovshoot.f90 \
+	implicit_solve.f90
+PHYSICS = $(patsubst %, $(PHYSICS_DIR)/%, $(FUSE_PHYSICS))
 
 # Model guts
 FUSE_MODGUT=\
@@ -208,7 +227,7 @@ SCE = \
 
 # ... and stitch it all together...
 FUSE_ALL = $(UTILMS) $(NRUTIL) $(DATAMS) $(TIMUTILS) $(INFOMS) \
-	$(NR_SUB) $(MODGUT) $(SOLVER) $(PRELIM) $(MODRUN) \
+	$(NR_SUB) $(PHYSICS) $(MODGUT) $(SOLVER) $(PRELIM) $(MODRUN) \
 	$(NETCDF) $(SCE)
 
 #========================================================================

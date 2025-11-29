@@ -18,13 +18,15 @@ USE fuse_fileManager,only:SETNGS_PATH,MOD_NUMERIX     ! defines data directory
 USE model_numerix,only:SOLUTION_METHOD,&              ! defines numerix decisions
   TEMPORAL_ERROR_CONTROL,INITIAL_NEWTON,JAC_RECOMPUTE,CHECK_OVERSHOOT,SMALL_ENDSTEP,&
   ERR_TRUNC_ABS,ERR_TRUNC_REL,ERR_ITER_FUNC,ERR_ITER_DX,THRESH_FRZE,FRACSTATE_MIN,&
-  SAFETY,RMIN,RMAX,NITER_TOTAL,MIN_TSTEP,MAX_TSTEP
+  SAFETY,RMIN,RMAX,NITER_TOTAL,MIN_TSTEP,MAX_TSTEP,diff_mode
+USE model_numerix,only:original,differentiable        ! named variables for diff_mode
 IMPLICIT NONE
 ! dummies
 integer(I4B),intent(out)               :: err
 character(*),intent(out)               :: message
 ! locals
 INTEGER(I4B)                           :: IUNIT       ! file unit
+integer(i4b)                           :: ios         ! io status flag
 integer(i4b),parameter::lenPath=1024 !DK/2008/10/21: allows longer file paths
 CHARACTER(LEN=lenPath)                 :: CFILE       ! name of constraints file
 LOGICAL(LGT)                           :: LEXIST      ! .TRUE. if file exists
@@ -65,6 +67,12 @@ READ(IUNIT,*) RMAX                    ! Maximum step size multiplier
 READ(IUNIT,*) NITER_TOTAL             ! Total number of iterations used in the implicit scheme
 READ(IUNIT,*) MIN_TSTEP               ! Minimum time step length (minutes)
 READ(IUNIT,*) MAX_TSTEP               ! Maximum time step length (minutes)
+! new option -- ensure backwards compatible
+read(iunit,*, iostat=ios) diff_mode   ! Mode for differentiable models (non-differentiable; differentiable)
+if(ios/=0)then
+  diff_mode = original
+  print*, "WARNING: diff_mode is not specified; setting option to original. Continuing"
+endif ! if problem reading 
 CLOSE(IUNIT)
 MIN_TSTEP = MIN_TSTEP/(24._SP*60._SP)  ! Convert from minutes to days
 MAX_TSTEP = MAX_TSTEP/(24._SP*60._SP)  ! Convert from minutes to days

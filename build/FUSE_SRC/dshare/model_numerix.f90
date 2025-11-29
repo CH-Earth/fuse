@@ -30,6 +30,9 @@ INTEGER(I4B)               :: CHECK_OVERSHOOT
 ! 6. Method used to process the small interval at the end of a time step
 INTEGER(I4B), PARAMETER    :: STEP_TRUNC=0, LOOK_AHEAD=1, STEP_ABSORB=2
 INTEGER(I4B)               :: SMALL_ENDSTEP
+! 7. Flag for differentiable model
+integer(i4b), parameter    :: original=0, differentiable=1
+integer(i4b)               :: diff_mode
 ! ---------------------------------------------------------------------------------------
 ! (B) PARAMETERS
 ! ---------------------------------------------------------------------------------------
