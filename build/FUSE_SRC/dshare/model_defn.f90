@@ -27,36 +27,27 @@ MODULE model_defn
  TYPE UMODEL
   INTEGER(I4B)                         :: MODIX           ! model index
   CHARACTER(LEN=256)                   :: MNAME           ! model name
-!  CHARACTER(LEN=16)                    :: RFERR           ! rainfall error
   INTEGER(I4B)                         :: iRFERR
-!  CHARACTER(LEN=16)                    :: ARCH1           ! upper-layer architecture
   INTEGER(I4B)                         :: iARCH1
-!  CHARACTER(LEN=16)                    :: ARCH2           ! lower-layer architecture
   INTEGER(I4B)                         :: iARCH2
-!  CHARACTER(LEN=16)                    :: QSURF           ! surface runoff
   INTEGER(I4B)                         :: iQSURF
-!  CHARACTER(LEN=16)                    :: QPERC           ! percolation
   INTEGER(I4B)                         :: iQPERC
-!  CHARACTER(LEN=16)                    :: ESOIL           ! evaporation
   INTEGER(I4B)                         :: iESOIL
-!  CHARACTER(LEN=16)                    :: QINTF           ! interflow
   INTEGER(I4B)                         :: iQINTF
-!  CHARACTER(LEN=16)                    :: Q_TDH           ! time delay in runoff
   INTEGER(I4B)                         :: iQ_TDH
   INTEGER(I4B)                         :: iSNOWM           ! snow
-   END TYPE UMODEL
+ END TYPE UMODEL
  ! structure to hold model state names
  TYPE SNAMES
-!  CHARACTER(LEN=8)                     :: SNAME           ! state name
   INTEGER(I4B)                         :: iSNAME          ! integer value of state name
  END TYPE SNAMES
  ! structure to hold model flux names
  TYPE FNAMES
   CHARACTER(LEN=16)                    :: FNAME           ! state name
  END TYPE FNAMES
-! max steps in routing function
-  INTEGER(I4B),PARAMETER::NTDH_MAX=500
-! model definitions
+ ! max steps in routing function
+ INTEGER(I4B),PARAMETER::NTDH_MAX=500
+ ! model definitions
  CHARACTER(LEN=256)                    :: FNAME_NETCDF_RUNS    ! NETCDF output filename for model runs
  CHARACTER(LEN=256)                    :: FNAME_NETCDF_PARA    ! NETCDF output filename for model parameters
  CHARACTER(LEN=256)                    :: FNAME_NETCDF_PARA_SCE   ! NETCDF output filename for model parameters produced by SCE

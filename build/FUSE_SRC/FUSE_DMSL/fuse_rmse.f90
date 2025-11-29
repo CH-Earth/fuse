@@ -22,6 +22,9 @@ MODULE FUSE_RMSE_MODULE
     ! data modules
     USE model_defn, ONLY:NSTATE,SMODL                        ! number of state variables
     USE model_defnames                                       ! integer model definitions
+    USE globaldata, ONLY: isPrint                            ! flag for printing progress to screen
+    USE globaldata, ONLY: fracstate0                         ! fraction of initial state (used for initialization)
+    USE globaldata, ONLY: NA_VALUE, NA_VALUE_SP              ! NA_VALUE for the forcing
     USE multiparam, ONLY: LPARAM,NUMPAR,MPARAM               ! list of model parameters
     USE multiforce, ONLY: MFORCE,AFORCE,DELTIM,ISTART        ! model forcing data
     USE multiforce, ONLY: numtim_in, itim_in                 ! length of input time series and associated index
@@ -34,9 +37,7 @@ MODULE FUSE_RMSE_MODULE
     USE multiforce, ONLY:nspat1,nspat2                       ! spatial dimensions
     USE multiforce, ONLY:ncid_var                            ! NetCDF ID for forcing variables
     USE multiforce, ONLY:gForce,gForce_3d                    ! gridded forcing data
-    USE multistate, ONLY:fracstate0,TSTATE,MSTATE,FSTATE,&   ! model states
-         HSTATE                              ! model states (continued)
-    USE multiforce, ONLY:NA_VALUE, NA_VALUE_SP              ! NA_VALUE for the forcing
+    USE multistate, ONLY:TSTATE,MSTATE,FSTATE,HSTATE         ! model state variables 
     USE multistate, ONLY:gState,gState_3d                    ! gridded state variables
     USE multiroute, ONLY:MROUTE,AROUTE,AROUTE_3d             ! routed runoff
     USE multistats, ONLY:MSTATS,PCOUNT,MOD_IX                ! access model statistics; counter for param set
@@ -116,13 +117,16 @@ MODULE FUSE_RMSE_MODULE
 
     ! add parameter set to the data structure
     CALL PUT_PARSET(XPAR)
-    PRINT *, 'Parameter set added to data structure:'
-    PRINT *, XPAR
+    if(isPrint) PRINT *, 'Parameter set added to data structure:'
+    if(isPrint) PRINT *, XPAR
 
     ! compute derived model parameters (bucket sizes, etc.)
     CALL PAR_DERIVE(ERR,MESSAGE)
     IF (ERR.NE.0) WRITE(*,*) TRIM(MESSAGE); IF (ERR.GT.0) STOP
 
+    if(isPrint) PRINT *, 'Writing parameter values...'
+    CALL PUT_PARAMS(PCOUNT)
+    
     ! initialize model states over the 2D gridded domain (1x1 domain in catchment mode)
     DO iSpat2=1,nSpat2
       DO iSpat1=1,nSpat1
@@ -130,10 +134,10 @@ MODULE FUSE_RMSE_MODULE
           gState_3d(iSpat1,iSpat2,1) = FSTATE     ! put the state into first time step of 3D structure
        END DO
     END DO
-    PRINT *, 'Model states initialized over the 2D gridded domain'
+    if(isPrint) PRINT *, 'Model states initialized over the 2D gridded domain'
 
     ! initialize elevations bands if snow module is on
-    PRINT *, 'N_BANDS =', N_BANDS
+    if(isPrint) PRINT *, 'N_BANDS =', N_BANDS
 
     IF (SMODL%iSNOWM.EQ.iopt_temp_index) THEN
       DO iSpat2=1,nSpat2
@@ -146,7 +150,7 @@ MODULE FUSE_RMSE_MODULE
           END DO
         END DO
       END DO
-      PRINT *, 'Snow states initiatlized over the 2D gridded domain '
+      if(isPrint) PRINT *, 'Snow states initiatlized over the 2D gridded domain '
     ENDIF
 
     ! allocate 3d data structure for fluxes
@@ -186,10 +190,10 @@ MODULE FUSE_RMSE_MODULE
         numtim_sub_cur=MIN(numtim_sub,numtim_sim-itim_sim+1)
 
         ! load forcing for desired period into gForce_3d
-        PRINT *, 'New subperiod: loading forcing for ',numtim_sub_cur,' time steps'
+        if(isPrint) PRINT *, 'New subperiod: loading forcing for ',numtim_sub_cur,' time steps'
         CALL get_gforce_3d(itim_in,numtim_sub_cur,ncid_forc,err,message)
         IF(err/=0)THEN; WRITE(*,*) 'Error while extracting 3d forcing'; STOP; ENDIF
-        PRINT *, 'Forcing loaded. Running FUSE...'
+        if(isPrint) PRINT *, 'Forcing loaded. Running FUSE...'
 
       ENDIF
 
@@ -345,15 +349,15 @@ MODULE FUSE_RMSE_MODULE
       ! if end of subperiod: write to output file and save states
       IF(itim_sub.EQ.numtim_sub_cur)THEN
 
-        PRINT *, 'End of subperiod reached:'
+        if(isPrint) PRINT *, 'End of subperiod reached:'
 
         ! write model output
         IF (OUTPUT_FLAG) THEN
-          PRINT *, 'Write output for ',numtim_sub_cur,' time steps starting at indice', itim_sim-numtim_sub_cur+1
+          if(isPrint) PRINT *, 'Write output for ',numtim_sub_cur,' time steps starting at indice', itim_sim-numtim_sub_cur+1
           CALL PUT_GOUTPUT_3D(itim_sim-numtim_sub_cur+1,itim_in-numtim_sub_cur+1,numtim_sub_cur,IPSET)
-          PRINT *, 'Done writing output'
+          if(isPrint) PRINT *, 'Done writing output'
         ELSE
-          PRINT *, 'OUTPUT_FLAG is set on FALSE, no output written'
+          if(isPrint) PRINT *, 'OUTPUT_FLAG is set on FALSE, no output written'
         END IF
 
         ! TODO: set gState_3d and MBANDS_VAR_4d to NA
@@ -382,20 +386,20 @@ MODULE FUSE_RMSE_MODULE
 
     ! get timing information
     CALL CPU_TIME(T2)
-    WRITE(*,*) "TIME ELAPSED = ", t2-t1
+    if(isPrint) WRITE(*,*) "TIME ELAPSED = ", t2-t1
 
     ! calculate mean summary statistics
     IF(.NOT.GRID_FLAG)THEN
 
-      PRINT *, 'Calculating performance metrics...'
+      if(isPrint) PRINT *, 'Calculating performance metrics...'
       CALL MEAN_STATS()
       RMSE = MSTATS%RAW_RMSE
 
+      print*, "NSE = ", MSTATS%NASH_SUTT
+
     ENDIF
 
-    PRINT *, 'Writing parameter values...'
-    CALL PUT_PARAMS(PCOUNT)
-    PRINT *, 'Writing model statistics...'
+    if(isPrint) PRINT *, 'Writing model statistics...'
     CALL PUT_SSTATS(PCOUNT)
 
     ! deallocate vectors

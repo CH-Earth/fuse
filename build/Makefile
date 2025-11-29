@@ -87,6 +87,7 @@ FUSE_DATAMS=    \
   model_defn.f90 \
 	data_types.f90 \
 	model_defnames.f90 \
+	globaldata.f90 \
 	multiconst.f90 \
 	multiforce.f90 \
 	multibands.f90 \

@@ -15,7 +15,7 @@ SUBROUTINE PUT_OUTPUT(iSpat1,iSpat2,ITIM,IMOD,IPAR)
   USE varextract_module                                 ! interface for the function to extract variables
   USE fuse_fileManager,only: Q_ONLY                     ! only write streamflow to output file?
   USE multiforce,ONLY: timDat                           ! time data
-  USE multistate, only: ncid_out                        ! NetCDF output file ID
+  USE globaldata, only: ncid_out                        ! NetCDF output file ID
 
   IMPLICIT NONE
   ! input
@@ -95,10 +95,10 @@ SUBROUTINE PUT_GOUTPUT_3D(istart_sim,istart_in,numtim,IPSET)
   USE fuse_fileManager,only: Q_ONLY                     ! only write streamflow to output file?
 
   USE multiforce, ONLY: timDat,time_steps               ! time data
-  USE multistate, only: ncid_out                        ! NetCDF output file ID
   USE multiforce, ONLY: nspat1,nspat2,startSpat2        ! spatial dimensions
   USE multiforce, ONLY: gForce_3d                       ! test only
-  USE multiforce, only: GRID_FLAG                          ! .true. if distributed
+  USE multiforce, only: GRID_FLAG                       ! .true. if distributed
+  USE globaldata, only: ncid_out                        ! NetCDF output file ID
 
   IMPLICIT NONE
 
