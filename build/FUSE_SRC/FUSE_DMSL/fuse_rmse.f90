@@ -268,9 +268,6 @@ MODULE FUSE_RMSE_MODULE
                  CALL ODE_INT(FUSE_SOLVE,STATE0,STATE1,DT_SUB,DT_FULL,IERR,MESSAGE)
                  IF (IERR.NE.0) THEN; PRINT *, TRIM(MESSAGE); STOP 1; ENDIF
 
-                 !print*, state1
-                 !if(ITIM_IN > sim_beg+100) stop
-
                 ! differentiable code   
                 case(differentiable)
 

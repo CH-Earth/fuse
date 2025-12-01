@@ -161,7 +161,7 @@ integer(I4B), intent(out)              :: err
 character(*), intent(out)              :: message
 ! internal
 integer(i4b),parameter::lenPath=1024 ! DK/2008/10/21: allows longer file paths
-INTEGER(I4B),DIMENSION(2)              :: IERR        ! error codes
+INTEGER(I4B)                           :: IERR        ! error code
 INTEGER(I4B)                           :: IUNIT       ! input file unit
 CHARACTER(LEN=lenPath)                 :: CFILE       ! name of control file
 CHARACTER(LEN=lenPath)                 :: BFILE       ! name of band file
@@ -181,21 +181,21 @@ REAL(SP),dimension(:,:,:),allocatable  :: AF_TEMP, ME_TEMP ! Temporary data stru
 ! internal: NetCDF read
 integer(i4b)                           :: ivarid_af,ivarid_me  ! NetCDF variable ID for area_frac and mean_area
 integer(i4b),parameter                 :: ndims=3     ! number of dimensions for frac_area
-integer(i4b) 										       :: dimid_eb    ! ID elevation bands
+integer(i4b)                           :: dimid_eb    ! ID elevation bands
 integer(i4b)                           :: iDimID      ! dimension ID
 integer(i4b)                           :: dimLen      ! dimension length
 
 ! ---------------------------------------------------------------------------------------
 
 ! read in NetCDF file defining the elevation bands
-err=0
+err=0; ierr=0
 CFILE = TRIM(INPUT_PATH)//ELEV_BANDS_NC      ! control file info shared in MODULE directory
 print *, 'Loading elevation bands from:',TRIM(CFILE)
 
 INQUIRE(FILE=CFILE,EXIST=LEXIST)  ! check that control file exists
 IF (.NOT.LEXIST) THEN
-	print *, 'f-GET_MBANDS_GRID/NetCDF file ',TRIM(CFILE),' for elevation bands does not exist '
-	STOP
+  print *, 'f-GET_MBANDS_GRID/NetCDF file ',TRIM(CFILE),' for elevation bands does not exist '
+  STOP
 ENDIF
 
 !open netcdf file
@@ -221,14 +221,14 @@ err = nf90_inq_varid(NCID_EB, 'mean_elev', ivarid_me)
 if(err/=0)then; message=trim(message)//trim(nf90_strerror(err)); return; endif
 
 ! allocate 1 data stucture
-ALLOCATE(MBANDS(N_BANDS),STAT=IERR(1))
+ALLOCATE(MBANDS(N_BANDS),STAT=IERR)
 
 ! allocate data structures
 ALLOCATE(Z_FORCING_grid(nspat1,nspat2),MBANDS_INFO_3d(nspat1,nspat2,n_bands),&
-				 AF_TEMP(nspat1,nspat2,n_bands),ME_TEMP(nspat1,nspat2,n_bands),&
-				 elev_mask(nspat1,nspat2),STAT=IERR(1))
+         AF_TEMP(nspat1,nspat2,n_bands),ME_TEMP(nspat1,nspat2,n_bands),&
+         elev_mask(nspat1,nspat2),STAT=IERR)
 
-IF (ANY(IERR.NE.0)) THEN
+IF (IERR.NE.0) THEN
  message="f-GET_MBANDS/problem allocating elevation band data structures"
  err=100; return
 ENDIF
@@ -243,26 +243,26 @@ if(err/=0)then; message=trim(message)//trim(nf90_strerror(err)); return; endif
 
 ! populate MBANDS_INFO_3d, Z_FORCING_grid and elev_mask
 DO iSpat2=1,nSpat2
-	DO iSpat1=1,nSpat1
+  DO iSpat1=1,nSpat1
 
-	 MBANDS_INFO_3d(iSpat1,iSpat2,:)%Z_MID = me_TEMP(iSpat1,iSpat2,:)
-	 MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF    = af_TEMP(iSpat1,iSpat2,:)
-	 Z_FORCING_grid(iSpat1,iSpat2)    = sum(me_TEMP(iSpat1,iSpat2,:)*af_TEMP(iSpat1,iSpat2,:)) ! estimate mean elevation of forcing using weighted mean of EB elevation
-	 elev_mask(iSpat1,iSpat2) = me_TEMP(iSpat1,iSpat2,1) .EQ. NA_VALUE_SP ! if mean elevation first band is NA_VALUE, mask this grid cell
+    MBANDS_INFO_3d(iSpat1,iSpat2,:)%Z_MID = me_TEMP(iSpat1,iSpat2,:)
+    MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF    = af_TEMP(iSpat1,iSpat2,:)
+    Z_FORCING_grid(iSpat1,iSpat2)    = sum(me_TEMP(iSpat1,iSpat2,:)*af_TEMP(iSpat1,iSpat2,:)) ! estimate mean elevation of forcing using weighted mean of EB elevation
+    elev_mask(iSpat1,iSpat2) = me_TEMP(iSpat1,iSpat2,1) .EQ. NA_VALUE_SP ! if mean elevation first band is NA_VALUE, mask this grid cell
+    
+    if(.NOT.elev_mask(iSpat1,iSpat2)) THEN ! only check area fraction sum to 1 if not NA_VALUE
+    
+      if (abs(sum(MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF)-1).GT.1E-2) then ! check that area fraction sum to 1
+    
+      print *, "The area fraction of all the elevation bands do not add up to 1"
+      !print *, 'Difference with 1 = ', abs(sum(MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF)-1)
+      print *, 'AF', MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF
+      stop
+    
+      end if
+    end if
 
-	 if(.NOT.elev_mask(iSpat1,iSpat2)) THEN ! only check area fraction sum to 1 if not NA_VALUE
-
-		 if (abs(sum(MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF)-1).GT.1E-2) then ! check that area fraction sum to 1
-
-		 	print *, "The area fraction of all the elevation bands do not add up to 1"
-			!print *, 'Difference with 1 = ', abs(sum(MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF)-1)
-			print *, 'AF', MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF
-			stop
-
-		 end if
-	 end if
-
-	END DO
+  END DO
 END DO
 
 err = nf90_close(ncid_eb)

@@ -264,6 +264,7 @@ if(err/=0)then; write(*,*) 'unable to allocate space for 3d structure'; stop; en
 
 ! get elevation band info, in particular N_BANDS
 CALL GET_MBANDS_INFO(ELEV_BANDS_NC,err,message) ! read band data from NetCDF file
+if(err/=0)then; write(*,*) trim(message); stop; endif
 
 ! allocate space for elevation bands
 allocate(MBANDS_VAR_4d(nspat1,nspat2,N_BANDS,numtim_sub+1),stat=err)
