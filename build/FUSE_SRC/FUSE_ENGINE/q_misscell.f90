@@ -25,8 +25,8 @@ USE multiparam, ONLY: MPARAM,DPARAM                   ! model parameters
 USE multistate, ONLY: MSTATE,TSTATE                   ! model states
 USE multi_flux, ONLY: M_FLUX                          ! model fluxes
 USE model_numerix                                     ! access model numerix decisions
+USE smoothers, only: logismooth                       ! logistic smoothing function
 IMPLICIT NONE
-REAL(SP)                               :: LOGISMOOTH  ! FUNCTION logistic smoothing
 REAL(SP), PARAMETER                    :: PSMOOTH=0.01_SP ! smoothing parameter
 REAL(SP)                               :: W_FUNC      ! result from LOGISMOOTH
 REAL(SP)                               :: DT          ! current time step

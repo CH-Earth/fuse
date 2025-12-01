@@ -1,5 +1,7 @@
 module Q_BASEFLOW_DIFF_module
 
+  USE globaldata, only: isDebug
+
   implicit none
 
   private

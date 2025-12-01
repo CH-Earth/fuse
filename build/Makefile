@@ -128,6 +128,7 @@ NR_SUB = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NR_SUB))
 
 # FUSE physics
 FUSE_PHYSICS= \
+	smoothers.f90 \
 	get_parent.f90 \
 	qsatexcess_diff.f90 \
 	evap_upper_diff.f90 \
@@ -154,7 +155,6 @@ FUSE_MODGUT=\
 	qpercolate.f90 \
 	q_baseflow.f90 \
 	q_misscell.f90 \
-	logismooth.f90 \
 	mstate_eqn.f90 \
 	fix_states.f90 \
 	meanfluxes.f90 \
@@ -248,15 +248,15 @@ endif
 ifeq "$(FC)" "gfortran"
 
  FLAGS_NORMA = -O3 -ffree-line-length-none -fmax-errors=0 -cpp
- FLAGS_DEBUG = -p -g -Wall -ffree-line-length-none -fmax-errors=0 -fbacktrace -fcheck=bounds -cpp
- FLAGS_DEBUG = -p -Og -ffree-line-length-none -fmax-errors=0 -fcheck=bounds -cpp # without -warn all
+ #FLAGS_DEBUG = -Wall -ffree-line-length-none -fmax-errors=0 -fbacktrace -fcheck=bounds -cpp
+ FLAGS_DEBUG = -O0 -ffree-line-length-none -fmax-errors=0 -fcheck=bounds -cpp # without -warn all
  FLAGS_FIXED = -O2 -c -ffixed-form
 
 endif
 
 # select a set of flags
-FLAGS = $(FLAGS_NORMA)
-#FLAGS = $(FLAGS_DEBUG)
+#FLAGS = $(FLAGS_NORMA)
+FLAGS = $(FLAGS_DEBUG)
 
 # MPI: FUSE with MPI has been compiled successfully with mpif90 and mpiifort.
 # Note: override must be specifed to enable FC passed as argument to be overridden

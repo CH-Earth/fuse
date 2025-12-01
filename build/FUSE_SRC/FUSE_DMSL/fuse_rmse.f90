@@ -103,7 +103,6 @@ MODULE FUSE_RMSE_MODULE
     ! differentiable model
     type(parent)                           :: fuseStruct     ! parent fuse data structure
 
-
     ! ---------------------------------------------------------------------------------------
     ! allocate state vectors
     ALLOCATE(STATE0(NSTATE),STATE1(NSTATE),STAT=IERR)
@@ -277,9 +276,16 @@ MODULE FUSE_RMSE_MODULE
 
                  ! populate parent fuse structure
                  call get_parent(fuseStruct)
-                 
                  ! solve differentiable ODEs
-                 call implicit_solve(fuseStruct, state0, state1, nState)
+                 call implicit_solve(fuseStruct, state0, state1, nState, ierr, cmessage)
+                 if(ierr/=0)then
+                   print*, trim(cmessage)
+                   print*, 'state0 = ', state0
+                   call implicit_solve(fuseStruct, state0, state1, nState, ierr, cmessage, isVerbose=.true.)
+                   stop 1
+                 endif
+
+
                  !print*, state1
                  !if(ITIM_IN > sim_beg+100) stop
 

@@ -1,5 +1,7 @@
 module MSTATE_RHS_DIFF_module
 
+  use globaldata, only: isDebug   ! print flag
+
   implicit none
 
   private
@@ -31,6 +33,8 @@ contains
    MPARAM => fuseStruct%param_adjust , &  ! adjustable model parameters
    DX_DT  => fuseStruct%dx_dt          &  ! time derivative in states
    ) ! (associate)
+
+  if(isDebug) print*, 'M_FLUX%QPERC_12 = ', M_FLUX%QPERC_12
 
   ! ---------------------------------------------------------------------------------------
   ! (1) COMPUTE TIME DERIVATIVES FOR STATES IN THE UPPER LAYER
@@ -70,6 +74,21 @@ contains
     STOP
   END SELECT
   ! ---------------------------------------------------------------------------------------
+
+  if(isDebug) print*, 'DX_DT%WATR_1, M_FLUX%EFF_PPT, M_FLUX%QSURF, M_FLUX%EVAP_1, M_FLUX%QPERC_12, M_FLUX%QINTF_1, M_FLUX%OFLOW_1 = ', & 
+                       DX_DT%WATR_1, M_FLUX%EFF_PPT, M_FLUX%QSURF, M_FLUX%EVAP_1, M_FLUX%QPERC_12, M_FLUX%QINTF_1, M_FLUX%OFLOW_1
+   
+  if(isDebug) print*, 'DX_DT%WATR_2, M_FLUX%QPERC_12, M_FLUX%EVAP_2, M_FLUX%QBASE_2, M_FLUX%OFLOW_2 = ', &
+                       DX_DT%WATR_2, M_FLUX%QPERC_12, M_FLUX%EVAP_2, M_FLUX%QBASE_2, M_FLUX%OFLOW_2
+
+    ! if(isDebug) print*, 'DX_DT%TENS_1, M_FLUX%EFF_PPT, M_FLUX%QSURF, M_FLUX%EVAP_1, M_FLUX%TENS2FREE_1 = ', &
+    !                      DX_DT%TENS_1, M_FLUX%EFF_PPT, M_FLUX%QSURF, M_FLUX%EVAP_1, M_FLUX%TENS2FREE_1
+    !
+    ! if(isDebug) print*, 'DX_DT%TENS_2, M_FLUX%QPERC_12*(1._SP-MPARAM%PERCFRAC), M_FLUX%EVAP_2,  M_FLUX%TENS2FREE_2 = ', &
+    !                      DX_DT%TENS_2, M_FLUX%QPERC_12*(1._SP-MPARAM%PERCFRAC), M_FLUX%EVAP_2,  M_FLUX%TENS2FREE_2
+    !
+    ! if(isDebug) print*, 'DX_DT%FREE_2B, M_FLUX%QPERC_12*(MPARAM%PERCFRAC/2._SP), M_FLUX%TENS2FREE_2/2._SP, M_FLUX%QBASE_2B, M_FLUX%OFLOW_2B = ', &
+    !                      DX_DT%FREE_2B, M_FLUX%QPERC_12*(MPARAM%PERCFRAC/2._SP), M_FLUX%TENS2FREE_2/2._SP, M_FLUX%QBASE_2B, M_FLUX%OFLOW_2B
 
   end associate  ! end association with variables in the data structures
   END SUBROUTINE MSTATE_RHS_DIFF

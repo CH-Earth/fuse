@@ -27,13 +27,13 @@ contains
   USE data_types, only: parent                          ! fuse parent data type
   USE model_defn                                        ! model definition structure
   USE model_defnames
+  USE smoothers, only: smoother                         ! smoothing function
   IMPLICIT NONE
   ! input-output
   type(parent), intent(inout)            :: fuseStruct  ! parent fuse data structure
   ! internal
-  REAL(SP)                               :: LOGISMOOTH  ! FUNCTION logistic smoothing
-  REAL(SP), PARAMETER                    :: PSMOOTH=0.01_SP ! smoothing parameter
-  REAL(SP)                               :: W_FUNC      ! result from LOGISMOOTH
+  REAL(SP), PARAMETER                    :: PSMOOTH=0.05_SP ! smoothing parameter
+  REAL(SP)                               :: W_FUNC      ! result from smoother
   ! -------------------------------------------------------------------------------------------------
   ! associate variables with elements of data structure
   associate(&
@@ -48,29 +48,29 @@ contains
   SELECT CASE(SMODL%iARCH1)
    CASE(iopt_tension2_1) ! tension storage sub-divided into recharge and excess
     ! compute flow from recharge to excess (mm s-1)
-    W_FUNC = LOGISMOOTH(TSTATE%TENS_1A,DPARAM%MAXTENS_1A,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%TENS_1A,DPARAM%MAXTENS_1A,PSMOOTH)
     M_FLUX%RCHR2EXCS   = W_FUNC * (M_FLUX%EFF_PPT - M_FLUX%QSURF)
     ! compute flow from tension storage to free storage (mm s-1)
-    W_FUNC = LOGISMOOTH(TSTATE%TENS_1B,DPARAM%MAXTENS_1B,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%TENS_1B,DPARAM%MAXTENS_1B,PSMOOTH)
     M_FLUX%TENS2FREE_1 = W_FUNC * M_FLUX%RCHR2EXCS
     ! compute over-flow of free water
-    W_FUNC = LOGISMOOTH(TSTATE%FREE_1,DPARAM%MAXFREE_1,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%FREE_1,DPARAM%MAXFREE_1,PSMOOTH)
     M_FLUX%OFLOW_1     = W_FUNC * M_FLUX%TENS2FREE_1
    CASE(iopt_tension1_1) ! upper layer broken up into tension and free storage
     ! no separate recharge zone (flux should never be used)
     M_FLUX%RCHR2EXCS   = 0._SP
     ! compute flow from tension storage to free storage (mm s-1)
-    W_FUNC = LOGISMOOTH(TSTATE%TENS_1,DPARAM%MAXTENS_1,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%TENS_1,DPARAM%MAXTENS_1,PSMOOTH)
     M_FLUX%TENS2FREE_1 = W_FUNC * (M_FLUX%EFF_PPT - M_FLUX%QSURF)
     ! compute over-flow of free water
-    W_FUNC = LOGISMOOTH(TSTATE%FREE_1,DPARAM%MAXFREE_1,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%FREE_1,DPARAM%MAXFREE_1,PSMOOTH)
     M_FLUX%OFLOW_1     = W_FUNC * M_FLUX%TENS2FREE_1
    CASE(iopt_onestate_1) ! upper layer defined by a single state variable
     ! no tension stores
     M_FLUX%RCHR2EXCS   = 0._SP
     M_FLUX%TENS2FREE_1 = 0._SP
     ! compute over-flow of free water
-    W_FUNC = LOGISMOOTH(TSTATE%WATR_1,MPARAM%MAXWATR_1,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%WATR_1,MPARAM%MAXWATR_1,PSMOOTH)
     M_FLUX%OFLOW_1     = W_FUNC * (M_FLUX%EFF_PPT - M_FLUX%QSURF)
    CASE DEFAULT
     print *, "SMODL%iARCH1 must be iopt_tension2_1, iopt_tension1_1, or iopt_onestate_1"
@@ -81,13 +81,13 @@ contains
   SELECT CASE(SMODL%iARCH2)
    CASE(iopt_tens2pll_2) ! tension reservoir plus two parallel tanks
     ! compute flow from tension storage to free storage (mm s-1)
-    W_FUNC = LOGISMOOTH(TSTATE%TENS_2,DPARAM%MAXTENS_2,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%TENS_2,DPARAM%MAXTENS_2,PSMOOTH)
     M_FLUX%TENS2FREE_2 = W_FUNC * M_FLUX%QPERC_12*(1._SP-MPARAM%PERCFRAC)
     ! compute over-flow of free water in the primary reservoir
-    W_FUNC = LOGISMOOTH(TSTATE%FREE_2A,DPARAM%MAXFREE_2A,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%FREE_2A,DPARAM%MAXFREE_2A,PSMOOTH)
     M_FLUX%OFLOW_2A    = W_FUNC * (M_FLUX%QPERC_12*(MPARAM%PERCFRAC/2._SP) + M_FLUX%TENS2FREE_2/2._SP)
     ! compute over-flow of free water in the secondary reservoir
-    W_FUNC = LOGISMOOTH(TSTATE%FREE_2B,DPARAM%MAXFREE_2B,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%FREE_2B,DPARAM%MAXFREE_2B,PSMOOTH)
     M_FLUX%OFLOW_2B    = W_FUNC * (M_FLUX%QPERC_12*(MPARAM%PERCFRAC/2._SP) + M_FLUX%TENS2FREE_2/2._SP)
     ! compute total overflow
     M_FLUX%OFLOW_2     = M_FLUX%OFLOW_2A + M_FLUX%OFLOW_2B
@@ -97,7 +97,7 @@ contains
     M_FLUX%OFLOW_2A    = 0._SP
     M_FLUX%OFLOW_2B    = 0._SP
     ! compute over-flow of free water
-    W_FUNC = LOGISMOOTH(TSTATE%WATR_2,MPARAM%MAXWATR_2,PSMOOTH)
+    W_FUNC = SMOOTHER(TSTATE%WATR_2,MPARAM%MAXWATR_2,PSMOOTH)
     M_FLUX%OFLOW_2     = W_FUNC * M_FLUX%QPERC_12
    CASE(iopt_unlimfrc_2,iopt_unlimpow_2,iopt_topmdexp_2) ! unlimited size
     M_FLUX%TENS2FREE_2 = 0._SP

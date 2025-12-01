@@ -16,7 +16,8 @@ MODULE globaldata
  real(sp), parameter    :: fracState0=0.25_sp
 
  ! print flag
- logical(lgt)           :: isPrint=.true.
+ logical(lgt), save     :: isPrint=.true.
+ logical(lgt), save     :: isDebug=.false.
 
  ! number of fuse evaluations
  integer(i4b), save     :: nFUSE_eval    

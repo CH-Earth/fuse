@@ -9,6 +9,7 @@ module overshoot_module
   private
   public :: get_bounds 
   public :: fix_ovshoot
+  public :: sigmoid
 
 contains
 
@@ -28,10 +29,21 @@ contains
   end function softplus
   ! ---------------------------------------------------------------------------------------
   ! ---------------------------------------------------------------------------------------
+  ! Sigmoid
+  pure real(sp) function sigmoid(z) result(s)
+    real(sp), intent(in) :: z
+    if (z >= 0._sp) then
+      s = 1._sp / (1._sp + exp(-z))
+    else
+      s = exp(z) / (1._sp + exp(z))
+    end if
+  end function sigmoid
+  ! ---------------------------------------------------------------------------------------
+  ! ---------------------------------------------------------------------------------------
 
   ! ---------------------------------------------------------------------------------------
   ! ---------------------------------------------------------------------------------------
-  SUBROUTINE fix_ovshoot(X_TRY, lower, upper)
+  SUBROUTINE fix_ovshoot(X_TRY, lower, upper, dclamp)
   ! ---------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -45,13 +57,23 @@ contains
   REAL(SP), DIMENSION(:), INTENT(INOUT)  :: X_TRY       ! vector of model states
   real(sp), dimension(:), intent(in)     :: lower       ! lower bound
   real(sp), dimension(:), intent(in)     :: upper       ! upper bound
+  real(sp), dimension(:), intent(out)    :: dclamp      ! derivative
   ! internal
   integer(i4b)                           :: i           ! index of model state variable
   real(sp), parameter                    :: alpha=10_sp ! controls sharpness in smoothing
-
-  ! apply soft constraint to model states
+ 
   do i=1,NSTATE
-   x_try(i) = lower(i) + softplus(x_try(i)-lower(i), alpha) - softplus(x_try(i)-upper(i), alpha)
+
+     ! hard constraints
+     x_try(i)  = max( min(x_try(i), upper(i)), lower(i) )
+     dclamp(i) = 1._sp
+
+     !   ! apply soft constraint to model states 
+     !   x_try(i)  = lower(i) + softplus(x_try(i)-lower(i), alpha) - softplus(x_try(i)-upper(i), alpha)
+     !   
+     !   ! compute derivative in clamp
+     !   dclamp(i) = sigmoid( (x_try(i) - lower(i)) * alpha ) - sigmoid( (x_try(i) - upper(i)) * alpha )
+  
   end do  ! looping through model state variables
 
   end subroutine fix_ovshoot
