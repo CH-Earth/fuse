@@ -9,13 +9,14 @@ FUNCTION FUNCTN(NOPT,A)
 ! Wrapper for SCE (used to compute the objective function)
 ! ---------------------------------------------------------------------------------------
 USE nrtype                                            ! variable types, etc.
-USE FUSE_RMSE_MODULE                           		  ! run model and compute the root mean squared error
-USE multiforce, only: ncid_forc                           ! NetCDF forcing file ID
+USE FUSE_RMSE_MODULE                                  ! run model and compute the root mean squared error
+USE multiforce, only: ncid_forc                       ! NetCDF forcing file ID
+USE globaldata, only: nFUSE_eval                      ! # fuse evaluations
 
 IMPLICIT NONE
 ! input
 INTEGER(I4B)                           :: NOPT        ! number of parameters
-REAL(MSP), DIMENSION(100), INTENT(IN)  :: A            ! model parameter set - can be bumped up to 100 elements
+REAL(MSP), DIMENSION(100), INTENT(IN)  :: A           ! model parameter set - can be bumped up to 100 elements
 
 ! internal
 REAL(SP), DIMENSION(:), ALLOCATABLE    :: SCE_PAR     ! sce parameter set
@@ -29,6 +30,9 @@ REAL(SP)                               :: RMSE        ! root mean squared error
 REAL(MSP)                              :: FUNCTN      ! objective function value
 
 ! ---------------------------------------------------------------------------------------
+
+nFUSE_eval = nFUSE_eval + 1
+
 ! get SCE parameter set
 ALLOCATE(SCE_PAR(NOPT), STAT=IERR); IF (IERR.NE.0) STOP ' problem allocating space '
 SCE_PAR(1:NOPT) = A(1:NOPT)  ! convert from MSP used in SCE to SP used in FUSE
@@ -39,7 +43,6 @@ CALL FUSE_RMSE(SCE_PAR,.FALSE.,NCID_FORC,RMSE,OUTPUT_FLAG,1) ! 2nd argument FALS
 
 ! deallocate parameter set
 DEALLOCATE(SCE_PAR, STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating space '
-print *, 'RMSE =', RMSE
 
 ! save objective function value
 FUNCTN = RMSE

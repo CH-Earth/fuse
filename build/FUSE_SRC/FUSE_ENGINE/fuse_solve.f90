@@ -10,8 +10,8 @@ SUBROUTINE FUSE_SOLVE(CALCDSDT,IE_SOLVE,SI_SOLVE,B_IMPOSE,AVG_FLUX,ADD_FLUX,NEWS
 !  (6) add fluxes from accepted sub-steps to the total timestep flux
 !  (7) estimate state at end of a full step, based on sum of fluxes 
 USE nrtype                                                   ! variable definitions, etc.
-USE multi_flux, ONLY: M_FLUX,FLUX_0,FLUX_1,W_FLUX,&          ! model fluxes
-                       CURRENT_DT                            ! model fluxes (continued)
+USE globaldata, ONLY: CURRENT_DT
+USE multi_flux, ONLY: M_FLUX,FLUX_0,FLUX_1,W_FLUX            ! model fluxes
 USE multistate, ONLY: FSTATE,MSTATE,BSTATE,ESTATE,&          ! model states
                        DY_DT,DYDT_0,DYDT_1,HSTATE            ! model states (continued)
 USE fminln, ONLY: fmin_x0p,fmin_dtp,fmin_dt2p,fmin_dseep     ! variables used for residual vector in IE 

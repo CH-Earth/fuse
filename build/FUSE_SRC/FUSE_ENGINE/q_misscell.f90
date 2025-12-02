@@ -20,12 +20,13 @@ SUBROUTINE Q_MISSCELL()
 USE nrtype                                            ! variable types, etc.
 USE model_defn                                        ! model definition structure
 USE model_defnames
+USE globaldata, ONLY: CURRENT_DT
 USE multiparam, ONLY: MPARAM,DPARAM                   ! model parameters
 USE multistate, ONLY: MSTATE,TSTATE                   ! model states
-USE multi_flux, ONLY: M_FLUX,CURRENT_DT               ! model fluxes
+USE multi_flux, ONLY: M_FLUX                          ! model fluxes
 USE model_numerix                                     ! access model numerix decisions
+USE smoothers, only: logismooth                       ! logistic smoothing function
 IMPLICIT NONE
-REAL(SP)                               :: LOGISMOOTH  ! FUNCTION logistic smoothing
 REAL(SP), PARAMETER                    :: PSMOOTH=0.01_SP ! smoothing parameter
 REAL(SP)                               :: W_FUNC      ! result from LOGISMOOTH
 REAL(SP)                               :: DT          ! current time step

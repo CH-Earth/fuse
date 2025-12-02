@@ -7,7 +7,7 @@
 #========================================================================
 
 # Define core directory below which everything resides
-F_MASTER = ${HOME}/fuse/
+F_MASTER = ${HOME}/Documents/analysis/diffModel/FUSE/source/fuse/
 
 # Core directory that contains FUSE source code
 F_KORE_DIR = $(F_MASTER)build/FUSE_SRC/
@@ -22,14 +22,9 @@ EXE_PATH = $(F_MASTER)bin/
 # PART 1: Define the libraries, driver programs, and executables
 #========================================================================
 
-# Define the fortran compiler. You have a few options: i) set the FC
-# variable in your environment, ii) set it when you compile this
-# Make file (e.g. make FC=ifort), iii) or if don't define it, the compiler
-# specified below is used
-ifndef FC
-	#FC = ifort
-	FC = gfortran
-endif
+# Define the fortran compiler. 
+#FC = ifort
+FC = gfortran
 
 # Define the NetCDF and HDF5 libraries. Use the libraries associated with
 # the compiler you selected above. Note that these paths are machine-dependent
@@ -41,13 +36,12 @@ ifeq "$(FC)" "ifort"
 endif
 
 ifeq "$(FC)" "gfortran"
-	NCDF_LIB_PATH = /usr/lib/x86_64-linux-gnu#${NCDF_PATH}
-	HDF_LIB_PATH = /usr/lib/x86_64-linux-gnu/hdf5/serial#${HDF_PATH}
-	INCLUDE_PATH = /usr#${IN_PATH}
+	INC_NETCDF := $(shell nf-config --fflags)
+	LIB_NETCDF := $(shell nf-config --flibs) $(shell nc-config --libs)
 endif
 
-LIBRARIES = -L$(NCDF_LIB_PATH)/lib -lnetcdff -lnetcdf -L$(HDF_LIB_PATH)/lib -lhdf5_hl -lhdf5
-INCLUDE = -I$(INCLUDE_PATH)/include -I$(INCLUDE_PATH)/include
+LIBRARIES = $(LIB_NETCDF)
+INCLUDE = $(INC_NETCDF)
 
 # Define the driver program and associated subroutines for the fidelity test
 FUSE_DRIVER = \
@@ -65,13 +59,15 @@ DRIVER_EX = fuse.exe
 #========================================================================
 
 # Define directories
-NUMREC_DIR = $(F_KORE_DIR)FUSE_NR
-HOOKUP_DIR = $(F_KORE_DIR)FUSE_HOOK
-DRIVER_DIR = $(F_KORE_DIR)FUSE_DMSL
-NETCDF_DIR = $(F_KORE_DIR)FUSE_NETCDF
-ENGINE_DIR = $(F_KORE_DIR)FUSE_ENGINE
-SCE_DIR    = $(F_KORE_DIR)FUSE_SCE
-TIME_DIR   = $(F_KORE_DIR)FUSE_TIME
+NUMREC_DIR  = $(F_KORE_DIR)FUSE_NR
+HOOKUP_DIR  = $(F_KORE_DIR)FUSE_HOOK
+DRIVER_DIR  = $(F_KORE_DIR)FUSE_DMSL
+NETCDF_DIR  = $(F_KORE_DIR)FUSE_NETCDF
+DSHARE_DIR  = $(F_KORE_DIR)dshare
+PHYSICS_DIR = $(F_KORE_DIR)physics
+ENGINE_DIR  = $(F_KORE_DIR)FUSE_ENGINE
+SCE_DIR     = $(F_KORE_DIR)FUSE_SCE
+TIME_DIR    = $(F_KORE_DIR)FUSE_TIME
 
 # Utility modules
 FUSE_UTILMS= \
@@ -89,7 +85,9 @@ NRUTIL = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NRUTIL))
 # Data modules
 FUSE_DATAMS=    \
   model_defn.f90 \
+	data_types.f90 \
 	model_defnames.f90 \
+	globaldata.f90 \
 	multiconst.f90 \
 	multiforce.f90 \
 	multibands.f90 \
@@ -99,7 +97,7 @@ FUSE_DATAMS=    \
 	multiroute.f90 \
 	multistats.f90 \
 	model_numerix.f90
-DATAMS = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_DATAMS))
+DATAMS = $(patsubst %, $(DSHARE_DIR)/%, $(FUSE_DATAMS))
 
 # Time I/O modules
 FUSE_TIMEMS=    \
@@ -128,6 +126,24 @@ FUSE_NR_SUB= \
 	gammln.f90 gammp.f90 gcf.f90 gser.f90
 NR_SUB = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NR_SUB))
 
+# FUSE physics
+FUSE_PHYSICS= \
+	smoothers.f90 \
+	get_parent.f90 \
+	qsatexcess_diff.f90 \
+	evap_upper_diff.f90 \
+	evap_lower_diff.f90 \
+	qinterflow_diff.f90 \
+	qpercolate_diff.f90 \
+	q_baseflow_diff.f90 \
+	q_misscell_diff.f90 \
+	mstate_rhs_diff.f90 \
+	mod_derivs_diff.f90 \
+	conserve_clamp.f90 \
+	fix_ovshoot.f90 \
+	implicit_solve.f90
+PHYSICS = $(patsubst %, $(PHYSICS_DIR)/%, $(FUSE_PHYSICS))
+
 # Model guts
 FUSE_MODGUT=\
 	mod_derivs.f90 \
@@ -140,7 +156,6 @@ FUSE_MODGUT=\
 	qpercolate.f90 \
 	q_baseflow.f90 \
 	q_misscell.f90 \
-	logismooth.f90 \
 	mstate_eqn.f90 \
 	fix_states.f90 \
 	meanfluxes.f90 \
@@ -214,7 +229,7 @@ SCE = \
 
 # ... and stitch it all together...
 FUSE_ALL = $(UTILMS) $(NRUTIL) $(DATAMS) $(TIMUTILS) $(INFOMS) \
-	$(NR_SUB) $(MODGUT) $(SOLVER) $(PRELIM) $(MODRUN) \
+	$(NR_SUB) $(PHYSICS) $(MODGUT) $(SOLVER) $(PRELIM) $(MODRUN) \
 	$(NETCDF) $(SCE)
 
 #========================================================================
@@ -234,15 +249,15 @@ endif
 ifeq "$(FC)" "gfortran"
 
  FLAGS_NORMA = -O3 -ffree-line-length-none -fmax-errors=0 -cpp
- FLAGS_DEBUG = -p -g -Wall -ffree-line-length-none -fmax-errors=0 -fbacktrace -fcheck=bounds -cpp
- FLAGS_DEBUG = -p -Og -ffree-line-length-none -fmax-errors=0 -fcheck=bounds -cpp # without -warn all
+ #FLAGS_DEBUG = -Wall -ffree-line-length-none -fmax-errors=0 -fbacktrace -fcheck=bounds -cpp
+ FLAGS_DEBUG = -O0 -ffree-line-length-none -fmax-errors=0 -fcheck=bounds -cpp # without -warn all
  FLAGS_FIXED = -O2 -c -ffixed-form
 
 endif
 
 # select a set of flags
-FLAGS = $(FLAGS_NORMA)
-#FLAGS = $(FLAGS_DEBUG)
+#FLAGS = $(FLAGS_NORMA)
+FLAGS = $(FLAGS_DEBUG)
 
 # MPI: FUSE with MPI has been compiled successfully with mpif90 and mpiifort.
 # Note: override must be specifed to enable FC passed as argument to be overridden
