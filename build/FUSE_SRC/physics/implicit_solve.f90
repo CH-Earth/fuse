@@ -51,12 +51,12 @@ module implicit_solve_module
  SUBROUTINE jac_flux(fuseStruct, x_try, g_x, lower, upper, Jac)
  IMPLICIT NONE
  ! input-output
- type(parent) , intent(inout) :: fuseStruct            ! parent fuse data structure
+ type(parent) , intent(in) :: fuseStruct            ! parent fuse data structure
  REAL(SP), DIMENSION(:), INTENT(IN) :: g_x, lower, upper
  REAL(SP), DIMENSION(:), INTENT(IN) :: x_try
  REAL(SP), DIMENSION(:,:), INTENT(OUT) :: Jac
  ! locals
- type(parent) :: ctx_sav
+ type(parent) :: fuseStruct_local
  real(sp), parameter :: eps_rel = 1e-4_sp
  real(sp), parameter :: eps_abs = 1e-6_sp   ! or smaller, but NOT 1e-9 scale
  real(sp), parameter :: h_min = 1e-8_sp 
@@ -66,18 +66,14 @@ module implicit_solve_module
 
  ! preliminaries
  n = size(x)
- ctx_sav = fuseStruct
+ fuseStruct_local = fuseStruct
  x    = x_try
  xsav = x
 
  ! loop through columns
  do j=1,n
 
-  ! safety: save full vector and data structure
-  fuseStruct = ctx_sav
-  x=xsav
-
-  ! propose one-sided step
+  ! propose one-sided step (NOTE: negative)
   h_try = -max(eps_rel*abs(xsav(j)), eps_abs)
 
   ! flip sign if necessary
@@ -85,16 +81,19 @@ module implicit_solve_module
 
   ! compute function from the perturbed vector
   x(j)  = xsav(j) + h_try
-  g_ph  = dx_dt(fuseStruct, x) 
+  g_ph  = dx_dt(fuseStruct_local, x) 
   h_act = x(j) - xsav(j)
 
   ! compute column in the Jacobian
   Jac(:,j) = (g_ph - g_x) / h_act
 
+  ! safety: save full vector and data structure
+  fuseStruct_local = fuseStruct ! restores consistency after finite differencing
+  x = xsav
+
  end do ! looping through Jacobian columns
 
  NUM_JACOBIAN = NUM_JACOBIAN + 1   ! keep track of the number of iterations
- fuseStruct = ctx_sav ! restores consistency after finite differencing
  end SUBROUTINE jac_flux
 
  ! ----- simple implicit solve for differentiable model  --------------------------
@@ -103,6 +102,7 @@ module implicit_solve_module
  USE nr, ONLY : lubksb,ludcmp
  USE overshoot_module, only : get_bounds             ! get state bounds
  USE overshoot_module, only : fix_ovshoot            ! fix overshoot (soft clamp)
+ USE conserve_clamp_module, only: conserve_clamp     ! fix overshoot and disaggregate fluxes to conserve mass
  USE model_numerix, only:  ERR_ITER_FUNC             ! Iteration convergence tolerance for function values
  USE model_numerix, only:  ERR_ITER_DX               ! Iteration convergence tolerance for dx
  implicit none
@@ -132,7 +132,6 @@ module implicit_solve_module
  integer(i4b), parameter            :: maxit=100     ! maximum number of iterations
  logical(lgt)                       :: converged     ! flag for convergence
  ! internal: backtracking line search w/ overshoot reject 
- type(parent)                       :: ctx           ! save the fuse structure
  real(sp)                           :: xnorm         ! norm used in maximum step
  real(sp)                           :: dxnorm        ! norm used to evaluate step size
  real(sp)                           :: stpmax        ! the maximum step
@@ -153,6 +152,11 @@ module implicit_solve_module
  integer(i4b)                       :: ls_it         ! index of line search iteration
  logical(lgt)                       :: ovshoot       ! flag for overshoot
  logical(lgt)                       :: accepted      ! flag for accepting newton step
+ real(sp)                           :: phi_best      ! best function evaluation
+ real(sp)                           :: x_best(nx)    ! best state vector
+ real(sp)                           :: g_best(nx)    ! dx/dt = g(x_best)
+ logical(lgt)                       :: have_best     ! check if found a state vector
+ logical(lgt)                       :: isClamped     ! check if fallback is clamped
  ! algorithmic control parameters (most passed through MODULE model_numerix)
  REAL(SP), PARAMETER                :: TOLMIN=1.0e-10_sp ! check for spurious minima
  REAL(SP), PARAMETER                :: STPMX=100.0_sp    ! maximum step in lnsrch
@@ -169,15 +173,15 @@ module implicit_solve_module
  ! check dimension size
  if (nx /= nState) stop "implicit_solve: nx /= nState"
 
+ ! initialize check for best function evaluation
+ phi_best = huge(1._sp); have_best=.false. 
+
  ! initialize number of calls
  NUM_FUNCS    = 0  ! number of function calls
  NUM_JACOBIAN = 0  ! number of times Jacobian is calculated
 
  ! get the flag for printing
  isPrint = .false.; if (present(isVerbose)) isPrint = isVerbose
-
- ! save the fuse structure
- ctx = fuseStruct
 
  ! get the bounds for the state variables
  ! NOTE: This can be done outside of the time and iteration loops (keeping here for now)
@@ -235,16 +239,12 @@ module implicit_solve_module
      exit ! exit iteration loop
    end if
 
-   if(isPrint) print*, 'x_try 0 = ', x_try
-
    ! --- J(x)
    call jac_flux(fuseStruct, x_try, g_x, lower, upper, Jg)
    do i=1,nx
      Jac(:,i) = -dt*Jg(:,i) !* dclamp(i)     ! multiply dt and clamp derivative
      Jac(i,i) = Jac(i,i) + 1.0_sp
    end do
-
-   if(isPrint) print*, 'x_try 1 = ', x_try
 
    ! --- function gradient: before Jac is modified in ludcmp
    gpsi  = matmul(transpose(Jac), res) ! assumes func =  0.5_sp * sum(res*res)
@@ -254,8 +254,6 @@ module implicit_solve_module
    call ludcmp(Jac, indx, d)     ! J overwritten with LU
    call lubksb(Jac, indx, dx)    ! dx becomes solution
      
-   if(isPrint) print*, 'x_try 2 = ', x_try
-
    if(isPrint)then
      print*, 'dx     = ', dx
      print*, 'Jg     = ', Jg
@@ -270,37 +268,21 @@ module implicit_solve_module
     dx = dxScale * dx
    end if
 
+   ! modify dx if Newton step not descending for psi
+   slope = dot_product(gpsi, dx)
+   if (slope >= 0._sp) dx = -gpsi ! fallback
+
    ! implement active-set methods
    do i=1,nx
      if (x_try(i) <= lower(i)+epsb .and. dx(i) < 0._sp) dx(i)=0._sp
      if (x_try(i) >= upper(i)-epsb .and. dx(i) > 0._sp) dx(i)=0._sp
    end do
 
-   ! modify dx if Newton step not descending for psi
-   slope = dot_product(gpsi, dx)
-   if (slope >= 0._sp) dx = -gpsi ! fallback
-
-     if(isPrint) print*, 'x_try 3 = ', x_try
    ! ---- backtracking line search  --------------
-
-   ! save the fuse structure to re-use in subsequent linesearch calls
-   ctx = fuseStruct      ! <--- snapshot *now*, for this Newton step
 
    ! line search control
    accepted = .false. ! flag to check if line search is accepted
    alamin   = ERR_ITER_DX / maxval( abs(dx) / max(abs(x_try), 1.0_sp) )
-
-   ! compute maximum lambda
-   lam_max = 1.0_sp
-   ! do i=1,nx
-   !   if (dx(i) > 0._sp) then
-   !     lam_i = (upper(i) - x_try(i) - epsb) / dx(i)
-   !     if (lam_i < lam_max) lam_max = max(0._sp, lam_i)
-   !   else if (dx(i) < 0._sp) then
-   !     lam_i = (lower(i) - x_try(i) + epsb) / dx(i)   ! dx<0 so this is positive
-   !     if (lam_i < lam_max) lam_max = max(0._sp, lam_i)
-   !   end if
-   ! end do
 
    ! check
    if(isPrint)then
@@ -311,7 +293,7 @@ module implicit_solve_module
 
    if(isPrint) isDebug = .true.
 
-   lambda = lam_max
+   lambda = 1.0_sp
    do ls_it = 1, ls_max
 
      if(isPrint)then
@@ -325,19 +307,19 @@ module implicit_solve_module
      if(isPrint)then
        print*, 'x_try = ', x_try
        print*, 'x_trial = ', x_trial
+       print*, 'lower = ', lower
+       print*, 'upper = ', upper
        print *, "delta = ", x_trial - x_try
        print *, "lambda*dx = ", lambda*dx
      endif
 
-     ! exit if violate bounds: line search direction is not valid
+     ! shrink lambda until find a value in the feasible space
      if(any(x_trial < lower) .or. any(x_trial > upper))then
-      accepted = .false.; exit
-      !lambda = lambda * shrink
-      !cycle
+      lambda = lambda * shrink
+      cycle
      endif
 
      ! compute function and function eval
-     fuseStruct = ctx
      g_trial    = dx_dt(fuseStruct, x_trial)
      res_trial  = x_trial - (x0 + dt*g_trial)
      phi_new    = 0.5_sp * dot_product(res_trial, res_trial)
@@ -349,7 +331,15 @@ module implicit_solve_module
        print*, 'g_trial = ', g_trial
        print*, 'res _trial= ', res_trial
      endif
-    
+
+     ! save best function evaluation   
+     if (phi_new < phi_best) then
+       phi_best  = phi_new
+       x_best    = x_trial
+       g_best    = g_trial
+       have_best = .true.
+     endif
+
      if (phi_new <= phi + phi_abs_tol) then
        accepted = .true.; exit
      endif 
@@ -375,10 +365,16 @@ module implicit_solve_module
      call fix_ovshoot(x_trial, lower, upper, dclamp) 
      ! get new function evaluation
      x_try      = x_trial
-     fuseStruct = ctx
      g_x        = dx_dt(fuseStruct, x_try)
      res        = x_try - (x0 + g_x*dt)
      phi        = 0.5_sp * dot_product(res, res)
+     ! save best function evaluation   
+     if (phi < phi_best) then
+       phi_best  = phi
+       x_best    = x_try
+       g_best    = g_x
+       have_best = .true.
+     endif
    end if
 
    ! tiny-step convergence
@@ -389,14 +385,24 @@ module implicit_solve_module
 
  end do  ! loop through iterations
 
+ ! ----- handle the extremely rare case of non-convergence -----
+ if( .not. converged)then
+
+   ! use explicit Euler if did not find anything
+   if( .not. have_best) g_best = dx_dt(fuseStruct, x0)
+
+   ! use dx/dt = g(x_best)
+   x_try = x0 + dt*g_best
+
+   ! test bounds violations: if bounds exceeded, then clamp and disaggregate fluxes (conserve mass)
+   call XTRY_2_STR(x_try, fuseStruct%state1)
+   call conserve_clamp(fuseStruct, dt, isClamped)
+   print*, 'WARNING: '//trim(message)//"failed to converge: use best function evaluation. Clamp = ", isClamped
+ 
+ endif  ! if not converged
+
  ! save final state
  x1 = x_try
-
- ! check convergence
- if( .not. converged)then
-  message=trim(message)//"failed to converge"
-  ierr=10; return
- endif
 
  end subroutine implicit_solve
 

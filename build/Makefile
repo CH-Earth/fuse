@@ -139,6 +139,7 @@ FUSE_PHYSICS= \
 	q_misscell_diff.f90 \
 	mstate_rhs_diff.f90 \
 	mod_derivs_diff.f90 \
+	conserve_clamp.f90 \
 	fix_ovshoot.f90 \
 	implicit_solve.f90
 PHYSICS = $(patsubst %, $(PHYSICS_DIR)/%, $(FUSE_PHYSICS))
