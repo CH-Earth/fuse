@@ -14,7 +14,7 @@ SUBROUTINE GETPARMETA(err,message)
 ! ---------------------------------------------------------------------------------------
 USE nrtype                                            ! variable types, etc.
 USE fuse_fileManager,only:SETNGS_PATH,CONSTRAINTS     ! defines data directory
-USE multiparam, ONLY: PARATT                          ! parameter attribute structure
+USE data_types, ONLY: PARATT                          ! parameter attribute structure
 USE putpar_str_module                                 ! provide access to SUBROUTINE putpar_str
 USE par_insert_module                                 ! provide access to SUBROUTINE par_insert
 IMPLICIT NONE

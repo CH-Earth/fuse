@@ -19,6 +19,8 @@ USE multiforce                                        ! model forcing data (obs 
 USE multiroute                                        ! routed runoff
 USE multi_flux                                        ! fluxes
 USE multistats                                        ! summary statistics
+USE globaldata, ONLY: isPrint                         ! flag for printing progress to screen
+USE globaldata, only: NA_VALUE_SP                     ! missing value
 USE model_numerix                                     ! model numerix parameters and data
 
 IMPLICIT NONE
@@ -51,7 +53,7 @@ REAL(SP), PARAMETER                    :: NO_ZERO=1.E-20  ! avoid divide by zero
 ! ---------------------------------------------------------------------------------------
 ! define sample size
 NS =  eval_end-eval_beg+1
-PRINT *, 'Number of time steps in evaluation period (EP) = ', NS
+if(isPrint) PRINT *, 'Number of time steps in evaluation period (EP) = ', NS
 
 ! allocate space for observed and simulated runoff
 ALLOCATE(QOBS(NS),QOBS_MASK(NS),QSIM(NS),STAT=IERR)
@@ -63,10 +65,10 @@ QSIM = AROUTE_3d(1,1,eval_beg-sim_beg+1:eval_end-sim_beg+1)%Q_ROUTED
 QOBS = aValid(1,1,eval_beg-sim_beg+1:eval_end-sim_beg+1)%OBSQ
 
 ! check for missing QOBS values
-QOBS_MASK = QOBS.ne.REAL(NA_VALUE, KIND(SP)) ! find the time steps for which QOBS is available
-NUM_AVAIL = COUNT(QOBS_MASK)	! number of time steps for which QOBS is available
+QOBS_MASK = QOBS.ne.NA_VALUE_SP ! find the time steps for which QOBS is available
+NUM_AVAIL = COUNT(QOBS_MASK)    ! number of time steps for which QOBS is available
 
-PRINT *, 'Number of time steps with observed streamflow in EP = ', NUM_AVAIL
+if(isPrint) PRINT *, 'Number of time steps with observed streamflow in EP = ', NUM_AVAIL
 
 IF (NUM_AVAIL.EQ.0) THEN
 
@@ -80,11 +82,11 @@ ELSE
   ALLOCATE(QOBS_AVAIL(NUM_AVAIL),QSIM_AVAIL(NUM_AVAIL),DOBS(NUM_AVAIL),DSIM(NUM_AVAIL),RAWD(NUM_AVAIL),LOGD(NUM_AVAIL),STAT=IERR)
 
   QOBS_AVAIL=PACK(QOBS,QOBS_MASK,QOBS_AVAIL)  ! moves QOBS time steps indicated by QOBS_MASK to QOBS_AVAIL,
-  											                      ! if no values is missing (i.e. NS = NUM_AVAIL) then QOBS_AVAIL
-  											                      ! should be a copy of QOBS
+                                              ! if no values is missing (i.e. NS = NUM_AVAIL) then QOBS_AVAIL
+                                              ! should be a copy of QOBS
   QSIM_AVAIL=PACK(QSIM,QOBS_MASK,QSIM_AVAIL)  ! moves QSIM time steps indicated by QOBS_MASK to QSIM_AVAIL
-  											                      ! if no values is missing (i.e. NS = NUM_AVAIL) then QSIM_AVAIL
-  										                      	! should be a copy of QSIM
+                                              ! if no values is missing (i.e. NS = NUM_AVAIL) then QSIM_AVAIL
+                                              ! should be a copy of QSIM
                                               
   ! compute mean
   XB_OBS = SUM(QOBS_AVAIL(:)) / REAL(NUM_AVAIL, KIND(SP))
@@ -130,8 +132,8 @@ ELSE
 
 END IF
 
-PRINT *, 'NSE = ', MSTATS%NASH_SUTT
-PRINT *, 'RAW_RMSE = ', MSTATS%RAW_RMSE
+if(isPrint) PRINT *, 'NSE = ', MSTATS%NASH_SUTT
+if(isPrint) PRINT *, 'RAW_RMSE = ', MSTATS%RAW_RMSE
 
 ! ---------------------------------------------------------------------------------------
 ! (3§) COMPUTE STATISTICS ON NUMERICAL ACCURACY AND EFFICIENCY

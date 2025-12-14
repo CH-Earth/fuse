@@ -255,14 +255,14 @@ DO ISTT=1,NSTATE
   ! -------------------------------------------------------------------------------------
   CASE (iopt_WATR_2)
    IF (ESTATE%WATR_2.LT.XMIN*MPARAM%MAXWATR_2) THEN    ! too much drainage
-    ERROR_LOSS         = (ESTATE%WATR_2 - XMIN*MPARAM%MAXWATR_1)/DT    ! error (L/T)
+    ERROR_LOSS         = (ESTATE%WATR_2 - XMIN*MPARAM%MAXWATR_2)/DT    ! error (L/T)
     TOTAL_LOSS         = M_FLUX%EVAP_2 + M_FLUX%QBASE_2
     M_FLUX%EVAP_2      = M_FLUX%EVAP_2  + (M_FLUX%EVAP_2 /TOTAL_LOSS)*ERROR_LOSS
     M_FLUX%QBASE_2     = M_FLUX%QBASE_2 + (M_FLUX%QBASE_2/TOTAL_LOSS)*ERROR_LOSS
     ESTATE%WATR_2      = XMIN*MPARAM%MAXWATR_2   ! (correct state)
     ERROR_FLAG         = .TRUE.
    ENDIF
-   IF (ESTATE%FREE_2B.GT.DPARAM%MAXFREE_2B) THEN
+   IF (ESTATE%WATR_2.GT.MPARAM%MAXWATR_2) THEN
     ERROR_LOSS         = (ESTATE%WATR_2 - MPARAM%MAXWATR_2)/DT 
     M_FLUX%OFLOW_2     = M_FLUX%OFLOW_2 + ERROR_LOSS
     ESTATE%WATR_2      = MPARAM%MAXWATR_2        ! (correct state)

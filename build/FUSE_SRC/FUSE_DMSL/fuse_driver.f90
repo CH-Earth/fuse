@@ -23,6 +23,8 @@ USE fuse_fileManager,only:fuse_SetDirsUndPhiles,&         ! sets directories and
 ! data modules
 USE model_defn,nstateFUSE=>nstate                         ! model definition structures
 USE model_defnames                                        ! defines the integer model options
+USE globaldata, ONLY: isPrint                             ! flag for printing progress to screen
+USE globaldata, only: nFUSE_eval                          ! number of fuse evaluations
 USE multiforce, ONLY: forcefile,vname_aprecip             ! model forcing structures
 USE multiforce, ONLY: AFORCE, aValid                      ! time series of lumped forcing/response data
 USE multiforce, ONLY: nspat1, nspat2                      ! grid dimensions
@@ -39,14 +41,14 @@ USE multiforce, only: numtim_sub, itim_sub                ! length of subperiod 
 USE multiforce, only: sim_beg,sim_end                     ! timestep indices
 USE multiforce, only: eval_beg,eval_end                   ! timestep indices
 USE multiforce, only: SUB_PERIODS_FLAG                    ! .true. if subperiods are used to run FUSE
-USE multiforce, only: NUMPSET,name_psets                  ! number of parameter set and their names
 
 USE multiforce, only: ncid_forc                           ! NetCDF forcing file ID
 USE multiforce, only: ncid_var                            ! NetCDF forcing variable ID
-USE multistate, only: ncid_out                            ! NetCDF output file ID
+USE globaldata, only: ncid_out                            ! NetCDF output file ID
 
 USE multibands                                            ! basin band stuctures
-USE multiparam, ONLY: LPARAM, PARATT, NUMPAR              ! parameter metadata structures
+USE data_types, ONLY: PARATT                              ! data type for metadata
+USE multiparam, ONLY: LPARAM, NUMPAR                      ! parameter metadata structures
 USE multistate, only: gState                              ! gridded state variables
 USE multistate, only: gState_3d                           ! gridded state variables with a time dimension
 USE multiroute, ONLY: AROUTE                              ! model routing structures
@@ -83,14 +85,15 @@ IMPLICIT NONE
 CHARACTER(LEN=256)                      :: DatString         ! file manager
 CHARACTER(LEN=256)                      :: dom_id            ! ID of the domain
 CHARACTER(LEN=10)                       :: fuse_mode='      ' ! fuse execution mode (run_def, run_best, run_pre, calib_sce)
-CHARACTER(LEN=256)                      :: file_para_list     ! txt file containing list of parameter sets
+CHARACTER(LEN=256)                      :: file_param        ! name of parameter file
+CHARACTER(LEN=10)                       :: index_param       ! index of desired parameter set
 
 ! ---------------------------------------------------------------------------------------
 ! SETUP MODELS FOR SIMULATION -- POPULATE DATA STRUCTURES
 ! ---------------------------------------------------------------------------------------
 ! fuse_file_manager
-CHARACTER(LEN=1024)                    :: FFMFILE      	  ! name of fuse_file_manager file
-CHARACTER(LEN=1024)                    :: ELEV_BANDS_NC	  ! name of NetCDF file for elevation bands
+CHARACTER(LEN=1024)                    :: FFMFILE         ! name of fuse_file_manager file
+CHARACTER(LEN=1024)                    :: ELEV_BANDS_NC   ! name of NetCDF file for elevation bands
 ! get model forcing data
 INTEGER(I4B)                           :: NTIM            ! number of time steps - still needed ?
 INTEGER(I4B)                           :: INFERN_START    ! start of inference period - still needed?
@@ -118,7 +121,7 @@ integer(i4b)                           :: file_pass          ! used read paramet
 ! ---------------------------------------------------------------------------------------
 INTEGER(I4B)                           :: ITIM    ! loop thru time steps
 INTEGER(I4B)                           :: IPAR    ! loop thru model parameters
-INTEGER(I4B)                           :: IPSET   ! loop thru model parameter sets
+INTEGER(I4B)                           :: IPSET   ! index of desired model parameter set
 TYPE(PARATT)                           :: PARAM_META ! parameter metadata (model parameters)
 REAL(SP), DIMENSION(:), ALLOCATABLE    :: BL      ! vector of lower parameter bounds
 REAL(SP), DIMENSION(:), ALLOCATABLE    :: BU      ! vector of upper parameter bounds
@@ -126,7 +129,7 @@ REAL(SP), DIMENSION(:), ALLOCATABLE    :: APAR    ! model parameter set
 INTEGER(KIND=4)                        :: ISEED   ! seed for the random sequence
 REAL(KIND=4),DIMENSION(:), ALLOCATABLE :: URAND   ! vector of quasi-random numbers U[0,1]
 REAL(SP)                               :: RMSE    ! error from the simulation
-
+integer(i4b)                           :: NUMPSET ! number of parameter sets
 ! ---------------------------------------------------------------------------------------
 ! SCE VARIABLES
 ! ---------------------------------------------------------------------------------------
@@ -176,22 +179,28 @@ mpi_nprocesses = 1
 CALL GETARG(1,DatString)  ! string defining forcinginfo file
 CALL GETARG(2,dom_id)     ! ID of the domain
 CALL GETARG(3,fuse_mode)  ! fuse execution mode (run_def, run_best, calib_sce)
-IF(TRIM(fuse_mode).EQ.'run_pre')  CALL GETARG(4,file_para_list)  ! fuse execution mode txt file containing list of parameter sets
+IF(TRIM(fuse_mode).EQ.'run_pre')then
+  CALL GETARG(4,file_param)   ! name of parameter file
+  CALL GETARG(5,index_param)  ! index of desired parameter set
+  IF(LEN_TRIM(index_param).EQ.0) IPSET = 1
+  IF(LEN_TRIM(index_param).GT.0) read(index_param,*) IPSET
+ENDIF
 
 ! check command-line arguments
 IF (LEN_TRIM(DatString).EQ.0) STOP '1st command-line argument is missing (fileManager)'
 IF (LEN_TRIM(dom_id).EQ.0) STOP '2nd command-line argument is missing (dom_id)'
 IF (LEN_TRIM(fuse_mode).EQ.0) STOP '3rd command-line argument is missing (fuse_mode)'
 IF(TRIM(fuse_mode).EQ.'run_pre')THEN
-  IF(LEN_TRIM(file_para_list).EQ.0)  STOP '4th command-line argument is missing (file_para_list) and is required in mode run_pre'
+  IF(LEN_TRIM(file_param).EQ.0)  STOP '4th command-line argument is missing (file_param) and is required in mode run_pre'
 ENDIF
 
 ! print command-line arguments
-print*, '1st command-line argument (fileManager) = ', trim(DatString)
-print*, '2nd command-line argument (dom_id) = ', trim(dom_id)
-print*, '3rd command-line argument (fuse_mode) = ', fuse_mode
+print*, '1st command-line argument (fileManager)   = ', trim(DatString)
+print*, '2nd command-line argument (dom_id)        = ', trim(dom_id)
+print*, '3rd command-line argument (fuse_mode)     = ', fuse_mode
 IF(TRIM(fuse_mode).EQ.'run_pre')THEN
-  print*, '4th command-line argument (file_para_list) = ', file_para_list
+  print*, '4th command-line argument (file_param)  = ', file_param
+  print*, '5th command-line argument (index_param) = ', IPSET
 ENDIF
 
 ! ---------------------------------------------------------------------------------------
@@ -255,6 +264,7 @@ if(err/=0)then; write(*,*) 'unable to allocate space for 3d structure'; stop; en
 
 ! get elevation band info, in particular N_BANDS
 CALL GET_MBANDS_INFO(ELEV_BANDS_NC,err,message) ! read band data from NetCDF file
+if(err/=0)then; write(*,*) trim(message); stop; endif
 
 ! allocate space for elevation bands
 allocate(MBANDS_VAR_4d(nspat1,nspat2,N_BANDS,numtim_sub+1),stat=err)
@@ -298,44 +308,13 @@ IF(fuse_mode == 'run_def')THEN ! run FUSE with default parameter values
   FNAME_NETCDF_PARA = TRIM(OUTPUT_PATH)//TRIM(dom_id)//'_'//TRIM(FMODEL_ID)//'_para_def.nc'
 #endif
 
-  NUMPSET=1  ! only the default parameter set is run
-  ALLOCATE(name_psets(NUMPSET))
-  name_psets(1)='default_param_set'
-
 ELSE IF(fuse_mode == 'run_pre')THEN  ! run FUSE with pre-defined parameter values
-
-  ! read file_para_list twice:
-  ! 1st pass: determine number of parameter set and allocate name_psets accordingly
-  ! 2st pass: save the names of parameter sets in name_psets
-
-  do file_pass = 1, 2
-
-    NUMPSET=0 ! intialize counter
-
-    OPEN(21,FILE=TRIM(file_para_list))
-      DO   ! loop through parameter files
-
-        READ(21,*,IOSTAT=ERR) dummy_string
-        IF (ERR.NE.0) EXIT
-        NUMPSET=NUMPSET+1       ! increment counter
-
-        if (file_pass.eq.2) THEN
-          name_psets(NUMPSET) = dummy_string ! save file names
-        ENDIF
-
-      END DO ! looping through parameter files
-
-    CLOSE(21)
-
-    if(file_pass.eq.1) THEN
-      print *, 'NUMPSET=', NUMPSET, 'based on the number of lines in ', TRIM(file_para_list)
-      ALLOCATE(name_psets(NUMPSET))
-    END IF
-  end do
 
   ! files to which model run and parameter set will be saved
   FNAME_NETCDF_RUNS = TRIM(OUTPUT_PATH)//TRIM(dom_id)//'_'//TRIM(FMODEL_ID)//'_runs_pre.nc'
   FNAME_NETCDF_PARA = TRIM(OUTPUT_PATH)//TRIM(dom_id)//'_'//TRIM(FMODEL_ID)//'_para_pre_out.nc'
+
+  NUMPSET=1  ! only the one "desired" parameter set is run
 
 ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
 
@@ -345,9 +324,9 @@ ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
 
   ! assign algorithmic control parameters for SCE
   ! convert characters to interger/MSP
-  READ (MAXN_STR,*) MAXN		 ! maximum number of trials before optimization is terminated
+  READ (MAXN_STR,*) MAXN     ! maximum number of trials before optimization is terminated
   READ (KSTOP_STR,*) KSTOP   ! number of shuffling loops the value must change by PCENTO (MAX=9)
-  READ (PCENTO_STR,*) PCENTO    ! the percentage
+  READ (PCENTO_STR,*) PCENTO ! the percentage
 
   PRINT *, 'SCE parameters read from file manager:'
   PRINT *, 'Maximum number of trials before SCE optimization is stopped (MAXN) = ', MAXN_STR
@@ -414,22 +393,15 @@ ELSE IF(fuse_mode == 'run_pre')THEN ! run FUSE with pre-defined parameter values
 
   OUTPUT_FLAG=.TRUE.
 
-  do IPSET = 1, NUMPSET
+  FNAME_NETCDF_PARA_PRE=TRIM(OUTPUT_PATH)//file_param
+  PRINT *, 'Loading parameter set ',IPSET,':'
 
-    FNAME_NETCDF_PARA_PRE=TRIM(OUTPUT_PATH)//name_psets(IPSET)
-    PRINT *, 'Loading parameter set ',IPSET,':'
+  ! load specific parameter set
+  CALL GET_PRE_PARAM(FNAME_NETCDF_PARA_PRE,IPSET,ONEMOD,NUMPAR,APAR)
 
-    ! load specific parameter set
-    ! 2nd argument is 1 because first (and only) parameter set should be loaded
-    CALL GET_PRE_PARAM(FNAME_NETCDF_PARA_PRE,1,ONEMOD,NUMPAR,APAR)
-
-    print *, 'Running FUSE with pre-defined parameter set'
-    CALL FUSE_RMSE(APAR,GRID_FLAG,NCID_FORC,RMSE,OUTPUT_FLAG,IPSET)
-    print *, 'Done running FUSE with pre-defined parameter set'
-
-  end do
-
-  DEALLOCATE(name_psets)
+  print *, 'Running FUSE with pre-defined parameter set'
+  CALL FUSE_RMSE(APAR,GRID_FLAG,NCID_FORC,RMSE,OUTPUT_FLAG,1) ! last argument IPSET=1
+  print *, 'Done running FUSE with pre-defined parameter set'
 
 ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
 
@@ -438,14 +410,20 @@ ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
 
   FNAME_ASCII = TRIM(OUTPUT_PATH)//TRIM(dom_id)//'_'//TRIM(FMODEL_ID)//'_sce_output.txt'
 
+  ! printing
+  isPrint    = .false.  !  ! turn off printing to screen
+  nFUSE_eval = 0        ! number of fuse eevaluations
+
   ! convert from SP used in FUSE to MSP used in SCE
   ALLOCATE(APAR_MSP(NUMPAR),BL_MSP(NUMPAR),BU_MSP(NUMPAR),URAND_MSP(NUMPAR))
 
   APAR_MSP=APAR
-  PRINT *, 'BL=',BL
   BL_MSP=BL
   BU_MSP=BU
   URAND_MSP=URAND
+
+  ! set random seed
+  ISEED = 1
 
   ! open up ASCII output file
   print *, 'Creating SCE output file:', trim(FNAME_ASCII)
