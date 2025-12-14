@@ -15,6 +15,9 @@ MODULE globaldata
  ! initial store fraction (initialization)
  real(sp), parameter    :: fracState0=0.25_sp
 
+ ! original code
+ logical(lgt), save     :: isOriginal=.true.
+
  ! print flag
  logical(lgt), save     :: isPrint=.true.
  logical(lgt), save     :: isDebug=.false.

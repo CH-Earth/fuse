@@ -106,8 +106,12 @@ MODULE FUSE_RMSE_MODULE
     ! ---------------------------------------------------------------------------------------
     ! allocate state vectors
     ALLOCATE(STATE0(NSTATE),STATE1(NSTATE),STAT=IERR)
-    IF (IERR.NE.0) STOP ' problem allocating space for state vectors in fuse_rmse '
+    IF (IERR.NE.0) STOP ' problem allocating space for state vectors in fuse_rmse'
 
+    ! allocate flux derivative vector
+    allocate(fuseStruct%df_dS(nState), stat=ierr)
+    if(ierr/=0) STOP ' problem allocating space for the flux derivative vector'
+   
     ! increment parameter counter for model output
     IF (.NOT.PRESENT(MPARAM_FLAG)) THEN
        PCOUNT = PCOUNT + 1
@@ -131,6 +135,8 @@ MODULE FUSE_RMSE_MODULE
     DO iSpat2=1,nSpat2
       DO iSpat1=1,nSpat1
           CALL INIT_STATE(fracState0)             ! define FSTATE using fracState0
+          CALL STR_2_XTRY(FSTATE,STATE0)          ! set state at the start of the time step (STATE0) using FSTATE
+          CALL XTRY_2_STR(STATE0,FSTATE)          ! update structure, including derived state variables
           gState_3d(iSpat1,iSpat2,1) = FSTATE     ! put the state into first time step of 3D structure
        END DO
     END DO
@@ -231,7 +237,7 @@ MODULE FUSE_RMSE_MODULE
                FSTATE = gState_3d(iSpat1,iSpat2,itim_sub)
                MSTATE = FSTATE                     ! refresh model states
                CALL STR_2_XTRY(FSTATE,STATE0)      ! set state at the start of the time step (STATE0) using FSTATE
-
+               
                ! initialize model fluxes
                CALL INITFLUXES()                   ! set weighted sum of fluxes to zero
 
@@ -273,6 +279,7 @@ MODULE FUSE_RMSE_MODULE
 
                  ! populate parent fuse structure
                  call get_parent(fuseStruct)
+
                  ! solve differentiable ODEs
                  call implicit_solve(fuseStruct, state0, state1, nState, ierr, cmessage)
                  if(ierr/=0)then
@@ -399,7 +406,8 @@ MODULE FUSE_RMSE_MODULE
       CALL MEAN_STATS()
       RMSE = MSTATS%RAW_RMSE
 
-      write(*,'(i6,1x,a6,1x,f12.6,1x)') nFUSE_eval, "NSE = ", MSTATS%NASH_SUTT
+      write(*,'(i6,1x,a6,1x,f12.6,1x,a20,1x,f12.6)') nFUSE_eval, "NSE = ", MSTATS%NASH_SUTT, "; TIME ELAPSED = ", t2-t1
+      !if(nFUSE_eval > 10) stop "checking results"
 
     ENDIF
 
@@ -408,7 +416,8 @@ MODULE FUSE_RMSE_MODULE
 
     ! deallocate vectors
     DEALLOCATE(W_FLUX_3d); IF (IERR.NE.0) STOP ' problem deallocating W_FLUX_3d in fuse_rmse '
-    DEALLOCATE(STATE0,STATE1,STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating state vectors in fuse_rmse '
+    DEALLOCATE(STATE0,STATE1,STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating state vectors in fuse_rmse'
+    deallocate(fuseStruct%df_dS, stat=ierr); if(ierr/=0) STOP ' problem deallocating space for the flux derivative vector'
 
   END SUBROUTINE FUSE_RMSE
 END MODULE FUSE_RMSE_MODULE

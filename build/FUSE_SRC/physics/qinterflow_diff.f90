@@ -7,7 +7,7 @@ module QINTERFLOW_DIFF_module
 
 contains
 
-  SUBROUTINE QINTERFLOW_DIFF(fuseStruct)
+  SUBROUTINE QINTERFLOW_DIFF(fuseStruct, want_dflux)
   ! ---------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -25,6 +25,9 @@ contains
   IMPLICIT NONE
   ! input-output
   type(parent), intent(inout)            :: fuseStruct  ! parent fuse data structure
+  logical(lgt), intent(in), optional     :: want_dflux  ! if we want flux derivatives
+  ! internal
+  logical(lgt)                           :: comp_dflux  ! flag to compute flux derivatives
   ! -------------------------------------------------------------------------------------------------
   ! associate variables with elements of data structure
   associate(&
@@ -33,6 +36,10 @@ contains
    MPARAM => fuseStruct%param_adjust , &  ! adjustable model parameters
    DPARAM => fuseStruct%param_derive   &  ! derived model parameters
    ) ! (associate)
+  ! -------------------------------------------------------------------------------------------------
+
+  ! check the need to compute flux derivatives
+  comp_dflux = .false.; if(present(want_dflux)) comp_dflux = want_dflux
 
   ! ---------------------------------------------------------------------------------------
   SELECT CASE(SMODL%iQINTF)

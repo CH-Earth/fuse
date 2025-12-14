@@ -18,7 +18,7 @@ module MOD_DERIVS_DIFF_module
 
 contains
 
-  SUBROUTINE MOD_DERIVS_DIFF(fuseStruct)
+  SUBROUTINE MOD_DERIVS_DIFF(fuseStruct, g_x, J_g)
   ! ---------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -29,21 +29,35 @@ contains
   ! Purpose:
   ! --------
   ! compute the time derivative (dx/dt) of all model states (x)
-  ! ---------------------------------------------------------------------------------------
+  ! --------------------------------------------------------------------------------------
   implicit none
-  type(parent), intent(inout)    :: fuseStruct      ! parent fuse data structure
+  ! input
+  type(parent) , intent(inout)            :: fuseStruct  ! parent fuse data structure
+  ! output
+  real(sp)     , intent(out)              :: g_x(:)      ! dx/dt=g(x)
+  real(sp)     , intent(out)  , optional  :: J_g(:,:)    ! flux Jacobian matrix
+  ! internal
+  logical(lgt)                            :: comp_dflux  ! flag to compute flux derivatives
+  ! --------------------------------------------------------------------------------------
+
+  ! check if Jacobian is desired
+  comp_dflux = present(J_g)
 
   ! compute fluxes
-  call qsatexcess_diff(fuseStruct)   ! compute the saturated area and surface runoff
-  call evap_upper_diff(fuseStruct)   ! compute evaporation from the upper layer
-  call evap_lower_diff(fuseStruct)   ! compute evaporation from the lower layer
-  call qinterflow_diff(fuseStruct)   ! compute interflow from free water in the upper layer
-  call qpercolate_diff(fuseStruct)   ! compute percolation from the upper to lower soil layers
-  call q_baseflow_diff(fuseStruct)   ! compute baseflow from the lower soil layer
-  call q_misscell_diff(fuseStruct)   ! compute miscellaneous fluxes (NOTE: need sat area, evap, and perc)
+  call qsatexcess_diff(fuseStruct, comp_dflux)   ! compute the saturated area and surface runoff
+  call evap_upper_diff(fuseStruct, comp_dflux)   ! compute evaporation from the upper layer
+  call evap_lower_diff(fuseStruct, comp_dflux)   ! compute evaporation from the lower layer
+  call qinterflow_diff(fuseStruct, comp_dflux)   ! compute interflow from free water in the upper layer
+  call qpercolate_diff(fuseStruct, comp_dflux)   ! compute percolation from the upper to lower soil layers
+  call q_baseflow_diff(fuseStruct, comp_dflux)   ! compute baseflow from the lower soil layer
+  call q_misscell_diff(fuseStruct, comp_dflux)   ! compute miscellaneous fluxes (NOTE: need sat area, evap, and perc)
 
   ! compute the time derivative (dx/dt) of all model states (x)
-  call mstate_rhs_diff(fuseStruct)
+  if(comp_dflux)then
+   call mstate_rhs_diff(fuseStruct, g_x, J_g)
+  else
+   call mstate_rhs_diff(fuseStruct, g_x)
+  endif
 
   END SUBROUTINE MOD_DERIVS_DIFF
 

@@ -310,6 +310,7 @@ module data_types
   type(statev)                        :: state1         ! state variables (end of step)
   type(statev)                        :: dx_dt          ! time derivative in state variables
   type(fluxes)                        :: flux           ! fluxes
+  type(fluxes), allocatable           :: df_dS(:)       ! derivative in fluxes w.r.t. states
   type(runoff)                        :: route          ! hillslope routing
   type(par_id)                        :: param_name     ! parameter names
   type(parinfo)                       :: param_meta     ! metadata on model parameters

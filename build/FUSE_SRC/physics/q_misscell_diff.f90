@@ -1,5 +1,5 @@
 module Q_MISSCELL_DIFF_module
-
+  
   implicit none
 
   private
@@ -7,7 +7,7 @@ module Q_MISSCELL_DIFF_module
 
 contains
 
-  SUBROUTINE Q_MISSCELL_DIFF(fuseStruct)
+  SUBROUTINE Q_MISSCELL_DIFF(fuseStruct, want_dflux)
   ! ---------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -31,7 +31,9 @@ contains
   IMPLICIT NONE
   ! input-output
   type(parent), intent(inout)            :: fuseStruct  ! parent fuse data structure
+  logical(lgt), intent(in), optional     :: want_dflux  ! if we want flux derivatives
   ! internal
+  logical(lgt)                           :: comp_dflux  ! flag to compute flux derivatives
   REAL(SP), PARAMETER                    :: PSMOOTH=0.05_SP ! smoothing parameter
   REAL(SP)                               :: W_FUNC      ! result from smoother
   ! -------------------------------------------------------------------------------------------------
@@ -44,6 +46,9 @@ contains
    ) ! (associate)
   ! ---------------------------------------------------------------------------------------
  
+  ! check the need to compute flux derivatives
+  comp_dflux = .false.; if(present(want_dflux)) comp_dflux = want_dflux
+
   ! ---------------------------------------------------------------------------------------
   SELECT CASE(SMODL%iARCH1)
    CASE(iopt_tension2_1) ! tension storage sub-divided into recharge and excess
@@ -70,8 +75,12 @@ contains
     M_FLUX%RCHR2EXCS   = 0._SP
     M_FLUX%TENS2FREE_1 = 0._SP
     ! compute over-flow of free water
-    W_FUNC = SMOOTHER(TSTATE%WATR_1,MPARAM%MAXWATR_1,PSMOOTH)
-    M_FLUX%OFLOW_1     = W_FUNC * (M_FLUX%EFF_PPT - M_FLUX%QSURF)
+    if(SMODL%iQSURF == iopt_arno_x_vic)then
+      M_FLUX%OFLOW_1 = 0._sp ! no need for overflow since the vic parmaeterization is smoothed now
+    else
+     W_FUNC = SMOOTHER(TSTATE%WATR_1,MPARAM%MAXWATR_1,PSMOOTH)
+     M_FLUX%OFLOW_1     = W_FUNC * (M_FLUX%EFF_PPT - M_FLUX%QSURF)
+    endif
    CASE DEFAULT
     print *, "SMODL%iARCH1 must be iopt_tension2_1, iopt_tension1_1, or iopt_onestate_1"
     STOP

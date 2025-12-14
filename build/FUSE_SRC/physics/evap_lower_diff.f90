@@ -7,7 +7,7 @@ module EVAP_LOWER_DIFF_MODULE
 
 contains
 
-  SUBROUTINE EVAP_LOWER_DIFF(fuseStruct)
+  SUBROUTINE EVAP_LOWER_DIFF(fuseStruct, want_dflux)
   ! -------------------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -25,6 +25,9 @@ contains
   IMPLICIT NONE
   ! input-output
   type(parent), intent(inout)            :: fuseStruct  ! parent fuse data structure
+  logical(lgt), intent(in), optional     :: want_dflux  ! if we want flux derivatives
+  ! internal
+  logical(lgt)                           :: comp_dflux  ! flag to compute flux derivatives
   ! -------------------------------------------------------------------------------------------------
   ! associate variables with elements of data structure
   associate(&
@@ -35,6 +38,9 @@ contains
    DPARAM => fuseStruct%param_derive   &  ! derived model parameters
    ) ! (associate)
   ! -------------------------------------------------------------------------------------------------
+
+  ! check the need to compute flux derivatives
+  comp_dflux = .false.; if(present(want_dflux)) comp_dflux = want_dflux
 
   ! ---------------------------------------------------------------------------------------
   SELECT CASE(SMODL%iARCH2)  ! lower layer architecture

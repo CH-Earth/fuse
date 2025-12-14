@@ -24,28 +24,35 @@ module implicit_solve_module
  contains
 
  ! ----- calculate dx/dt=g(x) -----------------------------------------------------------
- function dx_dt(fuseStruct, x_try) result(g_x)
- use MOD_DERIVS_DIFF_module, only: MOD_DERIVS_DIFF     ! compute dx/dt
+ subroutine dx_dt(fuseStruct, x_try, g_x, J_g)
+ use MOD_DERIVS_DIFF_module, only: MOD_DERIVS_DIFF      ! compute dx/dt
  implicit none
  ! input
- type(parent) , intent(inout) :: fuseStruct            ! parent fuse data structure
- real(sp)     , intent(in)    :: x_try(:)              ! trial state vector
+ type(parent) , intent(inout)            :: fuseStruct  ! parent fuse data structure
+ real(sp)     , intent(in)               :: x_try(:)    ! trial state vector
  ! output
- real(sp)                     :: g_x(size(x_try))      ! dx/dt=g(x)
+ real(sp)     , intent(out)              :: g_x(:)      ! dx/dt=g(x)
+ real(sp)     , intent(out)  , optional  :: J_g(:,:)    ! flux Jacobian matrix
+ ! internal
+ logical(lgt)                            :: comp_dflux  ! flag to compute flux derivatives
+ ! --------------------------------------------------------------------------------------
+
+ comp_dflux = present(J_g)
 
  ! put data in structure
  call XTRY_2_STR(x_try, fuseStruct%state1)
 
  ! run the fuse physics
- call mod_derivs_diff(fuseStruct)
+ if (present(J_g)) then
+  call mod_derivs_diff(fuseStruct, g_x, J_g)
+ else
+  call mod_derivs_diff(fuseStruct, g_x)
+ end if
  
- ! extract dx_dt from fuse structure
- call STR_2_XTRY(fuseStruct%dx_dt, g_x)
-
  ! track the total number of function calls
  NUM_FUNCS = NUM_FUNCS + 1
 
- end function dx_dt
+ end subroutine dx_dt
 
  ! ----- calculate the Jacobian of g(x) -------------------------------------------------
  SUBROUTINE jac_flux(fuseStruct, x_try, g_x, lower, upper, Jac)
@@ -81,7 +88,7 @@ module implicit_solve_module
 
   ! compute function from the perturbed vector
   x(j)  = xsav(j) + h_try
-  g_ph  = dx_dt(fuseStruct_local, x) 
+  call dx_dt(fuseStruct_local, x, g_ph)
   h_act = x(j) - xsav(j)
 
   ! compute column in the Jacobian
@@ -121,6 +128,7 @@ module implicit_solve_module
  real(sp)                           :: x_try(nx)     ! trial state vector
  real(sp)                           :: g_x(nx)       ! dx/dt=g(x)
  real(sp)                           :: res(nx)       ! residual vector
+ real(sp)                           :: Ja(nx,nx)     ! Jacobian matrix (flux)
  real(sp)                           :: Jg(nx,nx)     ! Jacobian matrix (flux)
  real(sp)                           :: Jac(nx,nx)    ! Jacobian matrix (full)
  real(sp)                           :: dx(nx)        ! state update
@@ -207,14 +215,10 @@ module implicit_solve_module
  accepted  = .false.
  converged = .false.
 
- if(isPrint) isDebug = .true.
- 
- ! --- F(x) and objective phi
- g_x = dx_dt(fuseStruct, x_try)
+ ! --- F(x), J(x), and objective phi
+ call dx_dt(fuseStruct, x_try, g_x, Jg)  ! compute analytical Jacobian
  res = x_try - (x0 + g_x*dt)
  phi = 0.5_sp * dot_product(res, res)
-
- if(isPrint) isDebug = .false.
 
  ! iterate
  do it = 1, maxit
@@ -222,27 +226,16 @@ module implicit_solve_module
    ! save x
    x_old = x_try
 
-   if(isPrint) print*, '***** start of iteration *****'
-
-   ! check
-   if(isPrint)then
-     print*, 'x_try = ', x_try
-     print*, 'g_x = ', g_x
-     print*, 'res = ', res
-     print*, 'phi = ', phi
-     print*, 'dclamp = ', dclamp
-     if(it > 10) stop 1
-   endif
-
+   ! check convergence
    if (phi < ERR_ITER_FUNC) then
      converged = .true.
      exit ! exit iteration loop
    end if
 
-   ! --- J(x)
-   call jac_flux(fuseStruct, x_try, g_x, lower, upper, Jg)
+   ! --- compute residual Jacobian J(x) from flux Jacobian Jg(x) ----
+   !call jac_flux(fuseStruct, x_try, g_x, lower, upper, Jg)
    do i=1,nx
-     Jac(:,i) = -dt*Jg(:,i) !* dclamp(i)     ! multiply dt and clamp derivative
+     Jac(:,i) = -dt*Jg(:,i) 
      Jac(i,i) = Jac(i,i) + 1.0_sp
    end do
 
@@ -254,11 +247,6 @@ module implicit_solve_module
    call ludcmp(Jac, indx, d)     ! J overwritten with LU
    call lubksb(Jac, indx, dx)    ! dx becomes solution
      
-   if(isPrint)then
-     print*, 'dx     = ', dx
-     print*, 'Jg     = ', Jg
-   endif
-
    ! --- Modify dx
 
    ! modify dx if norm > stpmax
@@ -284,34 +272,11 @@ module implicit_solve_module
    accepted = .false. ! flag to check if line search is accepted
    alamin   = ERR_ITER_DX / maxval( abs(dx) / max(abs(x_try), 1.0_sp) )
 
-   ! check
-   if(isPrint)then
-     print*, 'alamin = ', alamin
-     print*, 'slope  = ', slope
-     print*, 'gpsi   = ', gpsi
-   endif
-
-   if(isPrint) isDebug = .true.
-
    lambda = 1.0_sp
    do ls_it = 1, ls_max
 
-     if(isPrint)then
-       print*, '***** new linesearch *****', ls_it
-       print*, 'dx     = ', dx
-     endif
-
      ! update x 
      x_trial   = x_try + lambda*dx
-
-     if(isPrint)then
-       print*, 'x_try = ', x_try
-       print*, 'x_trial = ', x_trial
-       print*, 'lower = ', lower
-       print*, 'upper = ', upper
-       print *, "delta = ", x_trial - x_try
-       print *, "lambda*dx = ", lambda*dx
-     endif
 
      ! shrink lambda until find a value in the feasible space
      if(any(x_trial < lower) .or. any(x_trial > upper))then
@@ -319,18 +284,10 @@ module implicit_solve_module
       cycle
      endif
 
-     ! compute function and function eval
-     g_trial    = dx_dt(fuseStruct, x_trial)
+     ! compute function and function eval -- no need for the Jacobian here
+     call dx_dt(fuseStruct, x_trial, g_trial)
      res_trial  = x_trial - (x0 + dt*g_trial)
      phi_new    = 0.5_sp * dot_product(res_trial, res_trial)
-
-     if(isPrint)then
-       print*, 'ls_it, lambda, phi, phi_new', ls_it, lambda, phi, phi_new
-       print*, 'phi, phi_new, slope=', phi, phi_new, slope
-       print*, 'x_trial = ', x_trial
-       print*, 'g_trial = ', g_trial
-       print*, 'res _trial= ', res_trial
-     endif
 
      ! save best function evaluation   
      if (phi_new < phi_best) then
@@ -350,32 +307,26 @@ module implicit_solve_module
 
    end do  ! line search
 
-   if(isPrint) isDebug = .false.
-   
-   if (accepted) then
-     x_try   = x_trial
-     g_x     = g_trial
-     res     = res_trial
-     phi     = phi_new
-   else
-     ! ----- fallback: try a small step along the direction of steepest descent -----
-     !dx = -gpsi ! use steepest descent
+   ! ----- fallback: try a small step  -----
+   if(.not. accepted)then
      x_trial = x_try + dampen*dx
      if(any(x_trial < lower) .or. any(x_trial > upper)) &
      call fix_ovshoot(x_trial, lower, upper, dclamp) 
-     ! get new function evaluation
-     x_try      = x_trial
-     g_x        = dx_dt(fuseStruct, x_try)
-     res        = x_try - (x0 + g_x*dt)
-     phi        = 0.5_sp * dot_product(res, res)
-     ! save best function evaluation   
-     if (phi < phi_best) then
-       phi_best  = phi
-       x_best    = x_try
-       g_best    = g_x
-       have_best = .true.
-     endif
-   end if
+   end if ! (if accepted)
+
+   ! recompute dx_dt because we need the Jacobian
+   x_try  = x_trial
+   call dx_dt(fuseStruct, x_try, g_x, Jg)  ! compute analytical Jacobian
+   res = x_try - (x0 + g_x*dt)
+   phi = 0.5_sp * dot_product(res, res)
+
+   ! save best function evaluation   
+   if (phi < phi_best) then
+     phi_best  = phi
+     x_best    = x_try
+     g_best    = g_x
+     have_best = .true.
+   endif
 
    ! tiny-step convergence
    if (maxval( abs(x_try - x_old) / max(abs(x_try), 1._sp)  ) < ERR_ITER_DX) then
@@ -389,7 +340,7 @@ module implicit_solve_module
  if( .not. converged)then
 
    ! use explicit Euler if did not find anything
-   if( .not. have_best) g_best = dx_dt(fuseStruct, x0)
+   if( .not. have_best) call dx_dt(fuseStruct, x0, g_best)
 
    ! use dx/dt = g(x_best)
    x_try = x0 + dt*g_best
@@ -398,7 +349,7 @@ module implicit_solve_module
    call XTRY_2_STR(x_try, fuseStruct%state1)
    call conserve_clamp(fuseStruct, dt, isClamped)
    print*, 'WARNING: '//trim(message)//"failed to converge: use best function evaluation. Clamp = ", isClamped
- 
+
  endif  ! if not converged
 
  ! save final state
