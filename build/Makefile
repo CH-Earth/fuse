@@ -130,6 +130,7 @@ NR_SUB = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NR_SUB))
 FUSE_PHYSICS= \
 	smoothers.f90 \
 	get_parent.f90 \
+	update_swe_diff.f90 \
 	qsatexcess_diff.f90 \
 	evap_upper_diff.f90 \
 	evap_lower_diff.f90 \

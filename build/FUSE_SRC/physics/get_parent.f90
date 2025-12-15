@@ -7,6 +7,7 @@ module get_parent_module
 contains
 
   subroutine get_parent(fuseStruct)
+  use multiforce, only: timDat
   use multiforce, only: mForce
   use multistate, only: mState
   use multi_flux, only: m_flux
@@ -16,6 +17,7 @@ contains
   integer(i4b)                :: iState
 
   ! populate parent fuse structures
+  fuseStruct%time         = timdat
   fuseStruct%force        = mForce
   fuseStruct%state0       = mState
   fuseStruct%state1       = mState

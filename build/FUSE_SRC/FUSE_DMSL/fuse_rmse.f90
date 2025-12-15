@@ -9,6 +9,7 @@ MODULE FUSE_RMSE_MODULE
     ! Martyn Clark, 2009
     ! Modified by Brian Henn to include snow model, 6/2013
     ! Modified by Nans Addor to enable grid-based modeling, 9/2016
+    ! Modified by Martyn Clark to call differentiable modeling routines, 12/2025
     ! ---------------------------------------------------------------------------------------
     ! Purpose:
     ! --------
@@ -58,6 +59,7 @@ MODULE FUSE_RMSE_MODULE
     use data_types, only: parent                             ! fuse parent data type
     use get_parent_module, only: get_parent                  ! populate the parent data structure
     use implicit_solve_module, only:implicit_solve           ! simple implicit solve for differnetiable ODE
+    use update_swe_diff_module, only:update_swe_diff         ! differentiable snow model
 
     ! interface blocks
     USE interfaceb, ONLY:ode_int,fuse_solve                  ! provide access to FUSE_SOLVE through ODE_INT
@@ -241,6 +243,9 @@ MODULE FUSE_RMSE_MODULE
                ! initialize model fluxes
                CALL INITFLUXES()                   ! set weighted sum of fluxes to zero
 
+               ! populate parent fuse structure
+               if(diff_mode==differentiable) call get_parent(fuseStruct)
+
                ! if snow model is on, call UPDATE_SWE to calculate snow fluxes and update snow bands
                ! using explicit Euler approach; if not, call QRAINERROR
                SELECT CASE(SMODL%iSNOWM)
@@ -255,13 +260,18 @@ MODULE FUSE_RMSE_MODULE
                   MBANDS%SNOWMELT    = MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub)%SNOWMELT    ! snowmelt in band (mm day-1)
                   MBANDS%DSWE_DT     = MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub)%DSWE_DT     ! rate of change of band SWE (mm day-1)
 
-                  CALL UPDATE_SWE(DELTIM)
+                  ! run the snow model
+                  select case(diff_mode)
+                   case(original);       CALL UPDATE_SWE(DELTIM)
+                   case(differentiable); CALL UPDATE_SWE_DIFF(fuseStruct,DELTIM)
+                   CASE DEFAULT; stop "fuse_rmse: cannot identify diff_mode"
+                  end select
 
                CASE(iopt_no_snowmod)
                   CALL QRAINERROR()
                CASE DEFAULT
-                  message="f-fuse_rmse/SMODL%iSNOWM must be either iopt_temp_index or iopt_no_snowmod"
-                  RETURN
+                  message="fuse_rmse/SMODL%iSNOWM must be either iopt_temp_index or iopt_no_snowmod"
+                  print*, trim(message); stop 1
                END SELECT
 
               ! ----- start of soil physics code ------------------------------------------------------------
@@ -277,27 +287,14 @@ MODULE FUSE_RMSE_MODULE
                 ! differentiable code   
                 case(differentiable)
 
-                 ! populate parent fuse structure
-                 call get_parent(fuseStruct)
-
                  ! solve differentiable ODEs
                  call implicit_solve(fuseStruct, state0, state1, nState, ierr, cmessage)
-                 if(ierr/=0)then
-                   print*, trim(cmessage)
-                   print*, 'state0 = ', state0
-                   call implicit_solve(fuseStruct, state0, state1, nState, ierr, cmessage, isVerbose=.true.)
-                   stop 1
-                 endif
-
-
-                 !print*, state1
-                 !if(ITIM_IN > sim_beg+100) stop
 
                  ! save fluxes
                  W_FLUX = fuseStruct%flux
 
                 ! check options
-                case default; print*, "Cannot identify diff_mode"; stop 1
+                case default; print*, "fuse_rmse: Cannot identify diff_mode"; stop 1
               end select
 
               ! ----- end of soil physics code --------------------------------------------------------------

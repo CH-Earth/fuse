@@ -304,7 +304,7 @@ module data_types
  ! parent FUSE structure
  ! --------------------------------------------------------------------------------------
  type parent
-  type(m_time)                        :: time           ! time step
+  type(tdata)                         :: time           ! time data
   type(fdata)                         :: force          ! model forcing data
   type(statev)                        :: state0         ! state variables (start of step)
   type(statev)                        :: state1         ! state variables (end of step)
