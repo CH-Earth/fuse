@@ -16,7 +16,8 @@ SUBROUTINE ASSIGN_PAR()
 USE nrtype                                            ! variable types, etc.
 USE model_defn                                        ! model definition structure
 USE model_defnames
-USE multiparam, ONLY : lparam, paratt, numpar         ! model parameter structures
+USE data_types, ONLY : paratt                         ! data type for metadata
+USE multiparam, ONLY : lparam, numpar                 ! model parameter structures
 USE getpar_str_module                                 ! access to SUBROUTINE get_par_str
 IMPLICIT NONE
 INTEGER(I4B)                           :: MPAR        ! counter for number of parameters
