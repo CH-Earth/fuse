@@ -270,6 +270,44 @@ module data_types
  ENDTYPE PAR_ID
 
  ! --------------------------------------------------------------------------------------
+ ! elevation bands
+ ! --------------------------------------------------------------------------------------
+
+ TYPE BANDS ! for catchment scale modeling
+  INTEGER(I4B)                         :: NUM             ! band number (-)
+  REAL(SP)                             :: Z_MID           ! band mid-point elevation (m)
+  REAL(SP)                             :: AF              ! fraction of basin area in band (-)
+  REAL(SP)                             :: SWE             ! band snowpack water equivalent (mm)
+  REAL(SP)                             :: SNOWACCMLTN     ! new snow accumulation in band (mm day-1)
+  REAL(SP)                             :: SNOWMELT        ! snowmelt in band (mm day-1)
+  REAL(SP)                             :: DSWE_DT         ! rate of change of band SWE (mm day-1)
+ ENDTYPE BANDS
+
+ ! for distributed modeling MBANDS is split between time-independent and time-dependent charactertistics
+
+ TYPE BANDS_INFO ! invariant characteristics
+  REAL(SP)                             :: Z_MID         ! band mid-point elevation (m)
+  REAL(SP)                             :: AF            ! fraction of basin area in band (-)
+ ENDTYPE BANDS_INFO
+
+ TYPE BANDS_VAR ! time-dependent variables
+  REAL(SP)                             :: SWE           ! band snowpack water equivalent (mm)
+  REAL(SP)                             :: SNOWACCMLTN   ! new snow accumulation in band (mm day-1)
+  REAL(SP)                             :: SNOWMELT      ! snowmelt in band (mm day-1)
+  REAL(SP)                             :: DSWE_DT       ! rate of change of band SWE (mm day-1)
+ ENDTYPE BANDS_VAR
+
+ type bands_dx ! derivatives
+   real(sp),  allocatable              :: dSWE_dParam(:)  ! parameter derivative vector
+   real(sp),  allocatable              :: dEffP_dParam(:) ! parameter derivative vector
+ endtype bands_dx
+
+ type ebands
+   type(bands)                         :: var           ! time-dependent variables
+   type(bands_dx)                      :: dx            ! derivatives
+ endtype
+
+ ! --------------------------------------------------------------------------------------
  ! model statistics structure
  ! --------------------------------------------------------------------------------------
  TYPE SUMMARY
@@ -306,6 +344,7 @@ module data_types
  type parent
   type(tdata)                         :: time           ! time data
   type(fdata)                         :: force          ! model forcing data
+  type(ebands), allocatable           :: sbands(:)      ! info/variables for elevation bands (snow model)
   type(statev)                        :: state0         ! state variables (start of step)
   type(statev)                        :: state1         ! state variables (end of step)
   type(statev)                        :: dx_dt          ! time derivative in state variables
@@ -317,6 +356,7 @@ module data_types
   type(paradj)                        :: param_adjust   ! adjustable model parametrs
   type(pardvd)                        :: param_derive   ! derived model parameters
   type(summary)                       :: sim_stats      ! simulation statistics
+  real(sp)                            :: z_forcing      ! elevation of forcing data (m)
  end type parent
 
 end module data_types

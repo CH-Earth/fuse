@@ -45,6 +45,7 @@ contains
   ! derivatives
   logical(lgt)                           :: comp_dflux  ! flag to compute flux derivatives
   integer(i4b)                           :: iState      ! state index  
+  real(sp), parameter                    :: ms=1.e-4_sp ! smoothing in smax function 
   ! -------------------------------------------------------------------------------------------------
   ! associate variables with elements of data structure
   associate(&
@@ -72,17 +73,17 @@ contains
     
     ! ----- compute flux ----------------------------------------------------------------------------
     u  = 1._sp - w/wmax
-    xp = smax(u, 0._sp)   ! smooth version of max(u,0)
+    xp = smax(u, 0._sp, ms)   ! smooth version of max(u,0)
     M_FLUX%SATAREA = 1._sp - xp**b
 
     ! ----- compute derivatives ---------------------------------------------------------------------
     if(comp_dflux)then
 
       ! compute derivative w.r.t. saturated area
-      ds_dx = -b*xp**(b - 1._sp) ! derivative of saturated area w.r.t. xp
-      dx_du = dsmax(u, 0._sp)    ! derivative of smooth max(u,0) w.r.t. u
-      du_dw = -1._sp/wmax        ! derivative of u w.r.t. w
-      ds_dw = du_dw*dx_du*ds_dx  ! derivative of saturated area w.r.t. w
+      ds_dx = -b*xp**(b - 1._sp)  ! derivative of saturated area w.r.t. xp
+      dx_du = dsmax(u, 0._sp, ms) ! derivative of smooth max(u,0) w.r.t. u
+      du_dw = -1._sp/wmax         ! derivative of u w.r.t. w
+      ds_dw = du_dw*dx_du*ds_dx   ! derivative of saturated area w.r.t. w
 
       ! since WATR_1 is the sum of individual state variables (e.g., WATR_1=TENS_1+FREE_1) simply copy derivative
       do iState=1,nState

@@ -38,6 +38,7 @@ contains
   real(sp)                               :: maxRate_1b  ! maximum forcing for the secondary tension tank
   real(sp)                               :: dphi_dx     ! derivative in fraction w.r.t. storage
   real(sp)                               :: devap_dx    ! derivative in evaporation w.r.t. storage
+  real(sp), parameter                    :: ms=1.e-4_sp ! smoothing in sfrac(smax) function
   ! -------------------------------------------------------------------------------------------------
   ! associate variables with elements of data structure
   associate(&
@@ -61,8 +62,8 @@ contains
    ! --------------------------------------------------------------------------------------
  
     ! calculate the smoothed fraction of tension storage (NOTE: use WATR_1)
-    phi_1a = sfrac(TSTATE%TENS_1A, DPARAM%MAXTENS_1A)
-    phi_1b = sfrac(TSTATE%TENS_1B, DPARAM%MAXTENS_1B)
+    phi_1a = sfrac(TSTATE%TENS_1A, DPARAM%MAXTENS_1A, ms)
+    phi_1b = sfrac(TSTATE%TENS_1B, DPARAM%MAXTENS_1B, ms)
     
     ! calculate the maximum evap rate for the storage
     SELECT CASE(SMODL%iESOIL)
@@ -92,8 +93,8 @@ contains
     M_FLUX%EVAP_1B = 0._sp
 
     select case(SMODL%iARCH1)
-     case(iopt_tension1_1); phi = sfrac(TSTATE%TENS_1, DPARAM%MAXTENS_1)
-     case(iopt_onestate_1); phi = sfrac(TSTATE%WATR_1, DPARAM%MAXTENS_1) ! NOTE: use WATR_1
+     case(iopt_tension1_1); phi = sfrac(TSTATE%TENS_1, DPARAM%MAXTENS_1, ms)
+     case(iopt_onestate_1); phi = sfrac(TSTATE%WATR_1, DPARAM%MAXTENS_1, ms) ! NOTE: use WATR_1
     end select ! no need for default because checked above
 
     ! calculate the maximum evap rate for the upper layer
@@ -111,8 +112,8 @@ contains
      
      ! calculate the derivative in the smoothed fraction of tension storage
      select case(SMODL%iARCH1)
-      case(iopt_tension1_1); dphi_dx = dsfrac(TSTATE%TENS_1, DPARAM%MAXTENS_1)
-      case(iopt_onestate_1); dphi_dx = dsfrac(TSTATE%WATR_1, DPARAM%MAXTENS_1) ! NOTE: use WATR_1
+      case(iopt_tension1_1); dphi_dx = dsfrac(TSTATE%TENS_1, DPARAM%MAXTENS_1, ms)
+      case(iopt_onestate_1); dphi_dx = dsfrac(TSTATE%WATR_1, DPARAM%MAXTENS_1, ms) ! NOTE: use WATR_1
      end select ! no need for default because checked above
 
      ! calculate the derivative in the maximum rate

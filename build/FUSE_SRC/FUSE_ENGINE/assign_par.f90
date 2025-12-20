@@ -27,9 +27,8 @@ TYPE(PARATT)                           :: PARAM_LEV2  ! parameter metadata (leve
 MPAR = 0  ! initialize the number of model parameters
 LPARAM(:)%PARNAME = 'PAR_NOUSE'
 ! ---------------------------------------------------------------------------------------
-! (1) RAINFALL ERRORS
+! (1) PRECIPITATION ERRORS
 ! ---------------------------------------------------------------------------------------
-
 SELECT CASE(SMODL%iRFERR)
  CASE(iopt_additive_e) ! additive rainfall error
   MPAR=MPAR+1; LPARAM(MPAR)%PARNAME = 'RFERR_ADD'  ! additive rainfall error (mm day-1)
@@ -58,7 +57,23 @@ SELECT CASE(SMODL%iRFERR)
   STOP
 END SELECT  ! (different upper-layer architecture)
 ! ---------------------------------------------------------------------------------------
-! (2) UPPER-LAYER ARCHITECTURE
+! (2) SNOW MODEL 
+! ---------------------------------------------------------------------------------------
+SELECT CASE(SMODL%iSNOWM)
+ CASE(iopt_temp_index) ! temperature index snow model
+  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'MBASE    ' ! snow base melting temperature
+  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'MFMAX    ' ! snow maximum melt factor
+  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'MFMIN    ' ! snow minimum melt factor
+  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'PXTEMP   ' ! rain snow partition temperature
+  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'OPG      ' ! precipitation gradient
+  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'LAPSE    ' ! temperature gradient
+ CASE(iopt_no_snowmod) ! if no snow model, no additional parameters
+ CASE DEFAULT
+  print *, "SMODL%SNOWM must be either 'temp_index' or 'no_snowmod'"
+  STOP
+END SELECT
+! ---------------------------------------------------------------------------------------
+! (3) UPPER-LAYER ARCHITECTURE
 ! ---------------------------------------------------------------------------------------
 SELECT CASE(SMODL%iARCH1)
  CASE(iopt_tension2_1) ! tension storage sub-divided into recharge and excess 
@@ -74,7 +89,7 @@ SELECT CASE(SMODL%iARCH1)
   STOP
 END SELECT  ! (different upper-layer architechure)
 ! ---------------------------------------------------------------------------------------
-! (3) LOWER-LAYER ARCHITECTURE / BASEFLOW
+! (4) LOWER-LAYER ARCHITECTURE / BASEFLOW
 ! ---------------------------------------------------------------------------------------
 SELECT CASE(SMODL%iARCH2)
  CASE(iopt_tens2pll_2) ! tension reservoir plus two parallel tanks
@@ -105,7 +120,7 @@ SELECT CASE(SMODL%iARCH2)
   STOP
 END SELECT  ! different lower-layer architecture / baseflow parameterizations)
 ! ---------------------------------------------------------------------------------------
-! (4) EVAPORATION
+! (5) EVAPORATION
 ! ---------------------------------------------------------------------------------------
 SELECT CASE(SMODL%iESOIL)
  CASE(iopt_sequential)
@@ -116,7 +131,7 @@ SELECT CASE(SMODL%iESOIL)
   print *, "SMODL%iESOIL must be either iopt_sequential or iopt_rootweight'"
 END SELECT  ! (different evaporation schemes)
 ! ---------------------------------------------------------------------------------------
-! (5) PERCOLATION
+! (6) PERCOLATION
 ! ---------------------------------------------------------------------------------------
 SELECT CASE(SMODL%iQPERC)
  CASE(iopt_perc_f2sat,iopt_perc_w2sat) ! standard equation k(theta)**c
@@ -130,7 +145,7 @@ SELECT CASE(SMODL%iQPERC)
   STOP
 END SELECT  ! (different percolation options)
 ! ---------------------------------------------------------------------------------------
-! (6) INTERFLOW
+! (7) INTERFLOW
 ! ---------------------------------------------------------------------------------------
 SELECT CASE(SMODL%iQINTF)
  CASE(iopt_intflwsome) ! interflow
@@ -142,7 +157,7 @@ SELECT CASE(SMODL%iQINTF)
   STOP
 END SELECT  ! (different interflow options)
 ! ---------------------------------------------------------------------------------------
-! (7) SURFACE RUNOFF
+! (8) SURFACE RUNOFF
 ! ---------------------------------------------------------------------------------------
 SELECT CASE(SMODL%iQSURF)
  CASE(iopt_arno_x_vic) ! ARNO/Xzang/VIC parameterization (upper zone control)
@@ -166,7 +181,7 @@ SELECT CASE(SMODL%iQSURF)
   STOP
 END SELECT  ! (different surface runoff options)
 ! ---------------------------------------------------------------------------------------
-! (8) TIME DELAY IN RUNOFF
+! (9) TIME DELAY IN RUNOFF
 ! ---------------------------------------------------------------------------------------
 SELECT CASE(SMODL%iQ_TDH)
  CASE(iopt_rout_gamma) ! use a Gamma distribution with shape parameter = 2.5
@@ -175,22 +190,6 @@ SELECT CASE(SMODL%iQ_TDH)
   ! (no additional parameters when there is no time delay in runoff)
  CASE DEFAULT       ! check for errors
   print *, "SMODL%iQ_TDH must be either iopt_rout_gamma or iopt_no_routing"
-  STOP
-END SELECT
-! ---------------------------------------------------------------------------------------
-! (9) SNOW MODEL 
-! ---------------------------------------------------------------------------------------
-SELECT CASE(SMODL%iSNOWM)
- CASE(iopt_temp_index) ! temperature index snow model
-  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'MBASE    ' ! snow base melting temperature
-  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'MFMAX    ' ! snow maximum melt factor
-  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'MFMIN    ' ! snow minimum melt factor
-  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'PXTEMP   ' ! rain snow partition temperature
-  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'OPG      ' ! precipitation gradient
-  MPAR = MPAR + 1; LPARAM(MPAR)%PARNAME = 'LAPSE    ' ! temperature gradient
- CASE(iopt_no_snowmod) ! if no snow model, no additional parameters
- CASE DEFAULT
-  print *, "SMODL%SNOWM must be either 'temp_index' or 'no_snowmod'"
   STOP
 END SELECT
 ! ---------------------------------------------------------------------------------------

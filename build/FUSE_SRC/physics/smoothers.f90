@@ -14,7 +14,7 @@ contains
   ! ---------------------------------------------------------------------------------------
   ! ---------------------------------------------------------------------------------------
 
-  PURE FUNCTION sfrac(x,xmax) result(xf)
+  PURE FUNCTION sfrac(x,xmax,ms) result(xf)
   ! ---------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -28,16 +28,17 @@ contains
   implicit none
   real(sp),   intent(in)                 :: x           ! x value
   real(sp),   intent(in)                 :: xmax        ! maximum value
+  real(sp),   intent(in)                 :: ms          ! smoothing parameter
   real(sp)                               :: xp          ! smooth min(x,xmax)
   real(sp)                               :: xf          ! smooth fraction x/xmax
-  xp = xmax - smax(xmax - x, 0._sp)   ! smooth version of min(x, xmax)
-  xf = max(0._sp, xp) / xmax          ! use max(0._sp, xp) to account for small neg values at zero
+  xp = xmax - smax(xmax - x, 0._sp, ms)   ! smooth version of min(x, xmax)
+  xf = max(0._sp, xp) / xmax              ! use max(0._sp, xp) to account for small neg values at zero
   end function sfrac
 
   ! ---------------------------------------------------------------------------------------
   ! ---------------------------------------------------------------------------------------
 
-  PURE FUNCTION dsfrac(x,xmax) result(dxf_dx)
+  PURE FUNCTION dsfrac(x,xmax,ms) result(dxf_dx)
   ! ---------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -51,17 +52,18 @@ contains
   implicit none
   real(sp),   intent(in)                 :: x           ! x value
   real(sp),   intent(in)                 :: xmax        ! maximum value
+  real(sp),   intent(in)                 :: ms          ! smoothing parameter
   real(sp)                               :: dxp_dx      ! derivative of the max smoother
   real(sp)                               :: dxf_dx      ! derivative of the smoothed fraction
   ! NOTE: ignore the hard clamp at zero (very small differences and not worth the extra expense)
-  dxp_dx = dsmax(xmax - x, 0._sp)  ! note signs cancel out
+  dxp_dx = dsmax(xmax - x, 0._sp, ms)  ! note signs cancel out
   dxf_dx = dxp_dx / xmax
   end function dsfrac
 
   ! ---------------------------------------------------------------------------------------
   ! ---------------------------------------------------------------------------------------
 
-  PURE FUNCTION smax(x,xmin) result(xp)
+  PURE FUNCTION smax(x,xmin,ms) result(xp)
   ! ---------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -79,7 +81,7 @@ contains
   implicit none
   real(sp),   intent(in)                 :: x           ! x value
   real(sp),   intent(in)                 :: xmin        ! minimum value
-  real(sp),   parameter                  :: ms=1.e-4_sp ! smoothing parameter
+  real(sp),   intent(in)                 :: ms          ! smoothing parameter
   real(sp)                               :: srt         ! sqrt(x*x + ms)
   real(sp)                               :: xp          ! smooth max(x,xmin)
   srt = sqrt((x-xmin)**2 + ms)
@@ -89,7 +91,7 @@ contains
   ! ---------------------------------------------------------------------------------------
   ! ---------------------------------------------------------------------------------------
 
-  PURE FUNCTION dsmax(x,xmin) result(dxp)
+  PURE FUNCTION dsmax(x,xmin,ms) result(dxp)
   ! ---------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -107,7 +109,7 @@ contains
   implicit none
   real(sp),   intent(in)                 :: x           ! x value
   real(sp),   intent(in)                 :: xmin        ! minimum value
-  real(sp),   parameter                  :: ms=1.e-4_sp ! smoothing parameter
+  real(sp),   intent(in)                 :: ms          ! smoothing parameter
   real(sp)                               :: u           ! x-xmin
   real(sp)                               :: srt         ! sqrt(x*x + ms)
   real(sp)                               :: dxp         ! derivative of smooth max(x,xmin)
@@ -134,7 +136,7 @@ contains
   real(sp), intent(in) :: z, beta
   real(sp) :: zb
 
-  zb = beta * z
+  zb = z/beta
 
   if (zb >= 0._sp) then
     s = 1._sp / (1._sp + exp(-zb))
@@ -147,7 +149,7 @@ contains
   ! ---------------------------------------------------------------------------------------
   ! ---------------------------------------------------------------------------------------
 
-  pure real(sp) function dsigmoid(s, beta) result(ds_dx)
+  pure real(sp) function dsigmoid(s, beta) result(ds_dz)
   ! ---------------------------------------------------------------------------------------
   ! Creator:
   ! --------
@@ -155,12 +157,12 @@ contains
   ! ---------------------------------------------------------------------------------------
   ! Purpose:
   ! --------
-  ! Derivative in the sigmoid given already have the sigmoid
+  ! Derivative in the sigmoid w.r.t. z given already have the sigmoid
   ! ---------------------------------------------------------------------------------------  
   use nrtype
   implicit none
   real(sp), intent(in) :: s, beta
-  ds_dx = beta * s * (1._sp - s)
+  ds_dz = (s/beta) * (1._sp - s)
   end function dsigmoid
 
   ! ---------------------------------------------------------------------------------------

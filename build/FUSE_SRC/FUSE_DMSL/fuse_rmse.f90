@@ -21,6 +21,7 @@ MODULE FUSE_RMSE_MODULE
     USE nrtype                                               ! variable types, etc.
 
     ! data modules
+    USE globaldata, ONLY:NPAR_SNOW                           ! number of snow parameters
     USE model_defn, ONLY:NSTATE,SMODL                        ! number of state variables
     USE model_defnames                                       ! integer model definitions
     USE globaldata, ONLY: isPrint                            ! flag for printing progress to screen
@@ -44,7 +45,7 @@ MODULE FUSE_RMSE_MODULE
     USE multiroute, ONLY:MROUTE,AROUTE,AROUTE_3d             ! routed runoff
     USE multistats, ONLY:MSTATS,PCOUNT,MOD_IX                ! access model statistics; counter for param set
     USE multi_flux                                           ! model fluxes
-    USE multibands                                           ! elevation bands for snow modeling
+    USE multibands     ! NOTE: include N_BANDS               ! elevation bands for snow modeling
     USE set_all_module
 
     ! code modules
@@ -113,7 +114,20 @@ MODULE FUSE_RMSE_MODULE
     ! allocate flux derivative vector
     allocate(fuseStruct%df_dS(nState), stat=ierr)
     if(ierr/=0) STOP ' problem allocating space for the flux derivative vector'
-   
+
+    ! allocate elevation bands (for the snow model)
+    allocate(fuseStruct%sbands(n_bands), stat=ierr)
+    if(ierr/=0) STOP ' problem allocating space for the elevation bands'
+
+    ! allocate parameter derivative for each elevation band
+    do iBands=1,n_bands
+     allocate(fuseStruct%sbands(iBands)%dx%dSWE_dParam(NPAR_SNOW), &
+              fuseStruct%sbands(iBands)%dx%dEffP_dParam(NUMPAR),   stat=ierr)
+     if(ierr/=0) STOP ' problem allocating space for the parameter derivatives'
+     fuseStruct%sbands(iBands)%dx%dSWE_dparam(:) = 0._sp
+     fuseStruct%sbands(iBands)%dx%dEffP_dParam(:) = 0._sp
+    end do
+
     ! increment parameter counter for model output
     IF (.NOT.PRESENT(MPARAM_FLAG)) THEN
        PCOUNT = PCOUNT + 1
@@ -146,7 +160,6 @@ MODULE FUSE_RMSE_MODULE
 
     ! initialize elevations bands if snow module is on
     if(isPrint) PRINT *, 'N_BANDS =', N_BANDS
-
     IF (SMODL%iSNOWM.EQ.iopt_temp_index) THEN
       DO iSpat2=1,nSpat2
         DO iSpat1=1,nSpat1
@@ -260,6 +273,12 @@ MODULE FUSE_RMSE_MODULE
                   MBANDS%SNOWMELT    = MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub)%SNOWMELT    ! snowmelt in band (mm day-1)
                   MBANDS%DSWE_DT     = MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub)%DSWE_DT     ! rate of change of band SWE (mm day-1)
 
+                  ! put data into the FUSE structure
+                  if(diff_mode == differentiable)then
+                   fuseStruct%sbands%var = MBANDS
+                   fuseStruct%z_forcing  = Z_FORCING
+                  endif  ! if diff_mode == differentiable
+
                   ! run the snow model
                   select case(diff_mode)
                    case(original);       CALL UPDATE_SWE(DELTIM)
@@ -319,6 +338,12 @@ MODULE FUSE_RMSE_MODULE
 
               IF (SMODL%iSNOWM.EQ.iopt_temp_index) THEN
 
+                ! extract data from the FUSE structure
+                if(diff_mode == differentiable)then
+                 MBANDS    = fuseStruct%sbands%var 
+                 Z_FORCING = fuseStruct%z_forcing  
+                endif  ! if diff_mode == differentiable
+                
                 ! SWE TOT: weighted average of SWE over all the elevation bands
                 gState_3d(iSpat1,iSpat2,itim_sub+1)%SWE_TOT = SUM(MBANDS%SWE*MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF)
 
@@ -411,10 +436,18 @@ MODULE FUSE_RMSE_MODULE
     if(isPrint) PRINT *, 'Writing model statistics...'
     CALL PUT_SSTATS(PCOUNT)
 
+    ! deallocate parameter derivative vectors
+    do iBands=1,n_bands
+     deallocate(fuseStruct%sbands(iBands)%dx%dSWE_dParam,  &
+                fuseStruct%sbands(iBands)%dx%dEffP_dParam, stat=ierr)
+     if(ierr/=0) STOP ' problem deallocating space for the parameter derivatives'
+    end do
+
     ! deallocate vectors
     DEALLOCATE(W_FLUX_3d); IF (IERR.NE.0) STOP ' problem deallocating W_FLUX_3d in fuse_rmse '
     DEALLOCATE(STATE0,STATE1,STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating state vectors in fuse_rmse'
     deallocate(fuseStruct%df_dS, stat=ierr); if(ierr/=0) STOP ' problem deallocating space for the flux derivative vector'
+    deallocate(fuseStruct%sbands, stat=ierr); if(ierr/=0) STOP ' problem deallocating space for the elevation bands'
 
   END SUBROUTINE FUSE_RMSE
 END MODULE FUSE_RMSE_MODULE

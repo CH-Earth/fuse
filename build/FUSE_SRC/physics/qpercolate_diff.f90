@@ -35,6 +35,7 @@ contains
   real(sp)                               :: df_dpsi     ! derivative of flux w.r.t. fraction
   real(sp)                               :: dqperc_dx   ! derivative of percolation fux w.r.t. water state
   REAL(SP)                               :: LZ_PD       ! lower zone percolation demand
+  real(sp), parameter                    :: ms=1.e-4_sp ! smoothing in sfrac(smax) function
   ! ---------------------------------------------------------------------------------------
   ! associate variables with elements of data structure
   associate(&
@@ -62,8 +63,8 @@ contains
  
       ! compute fractions
       select case(SMODL%iQPERC)
-       case(iopt_perc_w2sat); phi = sfrac(TSTATE%WATR_1, MPARAM%MAXWATR_1)
-       case(iopt_perc_f2sat); phi = sfrac(TSTATE%FREE_1, DPARAM%MAXFREE_1)
+       case(iopt_perc_w2sat); phi = sfrac(TSTATE%WATR_1, MPARAM%MAXWATR_1, ms)
+       case(iopt_perc_f2sat); phi = sfrac(TSTATE%FREE_1, DPARAM%MAXFREE_1, ms)
       end select ! no need for default since already in block
      
       ! ----- compute flux ----------------------------------------------------------------
@@ -74,8 +75,8 @@ contains
 
       ! compute derivative in the fractions
       select case(SMODL%iQPERC)
-       case(iopt_perc_w2sat); dphi_dx = dsfrac(TSTATE%WATR_1, MPARAM%MAXWATR_1)
-       case(iopt_perc_f2sat); dphi_dx = dsfrac(TSTATE%FREE_1, DPARAM%MAXFREE_1)
+       case(iopt_perc_w2sat); dphi_dx = dsfrac(TSTATE%WATR_1, MPARAM%MAXWATR_1, ms)
+       case(iopt_perc_f2sat); dphi_dx = dsfrac(TSTATE%FREE_1, DPARAM%MAXFREE_1, ms)
       end select ! no need for default since already in block
 
       ! compute derivatives in the percolation flux
@@ -110,7 +111,7 @@ contains
   END SELECT
   ! --------------------------------------------------------------------------------------
 
-  end associate  ! end association with variables in the data structures-
+  end associate  ! end association with variables in the data structures
   END SUBROUTINE QPERCOLATE_DIFF
 
 end module QPERCOLATE_DIFF_module
