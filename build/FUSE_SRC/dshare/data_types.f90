@@ -4,10 +4,26 @@ module data_types
  use model_defn, only:NTDH_MAX
 
  ! --------------------------------------------------------------------------------------
+ ! options for the command-line interface
+ ! --------------------------------------------------------------------------------------
+ type :: cli_options
+   character(len=:), allocatable :: tag              ! string to add to output file
+   character(len=:), allocatable :: control_file
+   character(len=:), allocatable :: domain_id
+   character(len=:), allocatable :: runmode          ! def/idx/opt/sce
+   character(len=:), allocatable :: sets_file        ! for idx,opt
+   integer(i4b)                  :: indx = -1        ! for idx
+   character(len=:), allocatable :: restart_freq     ! y/m/d/e/never
+   character(len=:), allocatable :: progress_freq    ! m/d/h/never
+   logical(lgt)                  :: show_version = .false.
+   logical(lgt)                  :: show_help    = .false.
+ end type cli_options
+
+ ! --------------------------------------------------------------------------------------
  ! model time structure
  ! --------------------------------------------------------------------------------------
  TYPE M_TIME
-  REAL(SP)                             :: STEP       ! (time interval to advance model states)
+  REAL(SP)                               :: STEP       ! (time interval to advance model states)
  END TYPE M_TIME
 
  ! --------------------------------------------------------------------------------------

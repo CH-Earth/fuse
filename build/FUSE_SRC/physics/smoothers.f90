@@ -7,7 +7,9 @@ module smoothers
   public:: LOGISMOOTH
   public:: smoother
   public:: smax,dsmax
+  public:: smin,dsmin
   public:: sfrac,dsfrac
+  public:: sclamp,dsclamp
 
 contains
 
@@ -15,10 +17,6 @@ contains
   ! ---------------------------------------------------------------------------------------
 
   PURE FUNCTION sfrac(x,xmax,ms) result(xf)
-  ! ---------------------------------------------------------------------------------------
-  ! Creator:
-  ! --------
-  ! Martyn Clark, 2025
   ! ---------------------------------------------------------------------------------------
   ! Purpose:
   ! --------
@@ -40,10 +38,6 @@ contains
 
   PURE FUNCTION dsfrac(x,xmax,ms) result(dxf_dx)
   ! ---------------------------------------------------------------------------------------
-  ! Creator:
-  ! --------
-  ! Martyn Clark, 2025
-  ! ---------------------------------------------------------------------------------------
   ! Purpose:
   ! --------
   ! Get derivative of the smooth fraction
@@ -64,10 +58,6 @@ contains
   ! ---------------------------------------------------------------------------------------
 
   PURE FUNCTION smax(x,xmin,ms) result(xp)
-  ! ---------------------------------------------------------------------------------------
-  ! Creator:
-  ! --------
-  ! Martyn Clark, 2025
   ! ---------------------------------------------------------------------------------------
   ! Purpose:
   ! --------
@@ -93,10 +83,6 @@ contains
 
   PURE FUNCTION dsmax(x,xmin,ms) result(dxp)
   ! ---------------------------------------------------------------------------------------
-  ! Creator:
-  ! --------
-  ! Martyn Clark, 2025
-  ! ---------------------------------------------------------------------------------------
   ! Purpose:
   ! --------
   ! Compute derivative of smoothed max function of Kavetski and Kuczera (2007)
@@ -119,13 +105,52 @@ contains
   end function dsmax
 
   ! ---------------------------------------------------------------------------------------
+  ! Extra helper functions
+  ! ---------------------------------------------------------------------------------------
+  ! Purpose:
+  ! --------
+  ! compute smin, sclamp, and derivatives
+  ! ---------------------------------------------------------------------------------------
+
+  pure function smin(x, xmax, ms) result(xp)
+    use nrtype
+    implicit none
+    real(sp), intent(in) :: x, xmax, ms
+    real(sp) :: xp
+    xp = xmax - smax(xmax - x, 0._sp, ms)
+  end function smin
+  
+  pure function dsmin(x, xmax, ms) result(dxp)
+    use nrtype
+    implicit none
+    real(sp), intent(in) :: x, xmax, ms
+    real(sp) :: dxp
+    dxp = dsmax(xmax - x, 0._sp, ms)
+  end function dsmin
+  
+  pure function sclamp(x, xmin, xmax, ms) result(xp)
+    use nrtype
+    implicit none
+    real(sp), intent(in) :: x, xmin, xmax, ms
+    real(sp) :: xp
+    xp = smax( smin(x, xmax, ms), xmin, ms )
+  end function sclamp
+  
+  pure function dsclamp(x, xmin, xmax, ms) result(dxp)
+    use nrtype
+    implicit none
+    real(sp), intent(in) :: x, xmin, xmax, ms
+    real(sp) :: v
+    real(sp) :: dxp
+    v   = smin(x, xmax, ms)
+    dxp = dsmax(v, xmin, ms) * dsmin(x, xmax, ms)
+  end function dsclamp
+
+
+  ! ---------------------------------------------------------------------------------------
   ! ---------------------------------------------------------------------------------------
  
   pure real(sp) function sigmoid(z, beta) result(s)
-  ! ---------------------------------------------------------------------------------------
-  ! Creator:
-  ! --------
-  ! Martyn Clark, 2025
   ! ---------------------------------------------------------------------------------------
   ! Purpose:
   ! --------
@@ -151,10 +176,6 @@ contains
 
   pure real(sp) function dsigmoid(s, beta) result(ds_dz)
   ! ---------------------------------------------------------------------------------------
-  ! Creator:
-  ! --------
-  ! Martyn Clark, 2025
-  ! ---------------------------------------------------------------------------------------
   ! Purpose:
   ! --------
   ! Derivative in the sigmoid w.r.t. z given already have the sigmoid
@@ -170,10 +191,6 @@ contains
 
 
   PURE FUNCTION smoother(STATE,STATE_MAX,PSMOOTH) result(w_func)
-  ! ---------------------------------------------------------------------------------------
-  ! Creator:
-  ! --------
-  ! Martyn Clark, 2025
   ! ---------------------------------------------------------------------------------------
   ! Purpose:
   ! --------

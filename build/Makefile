@@ -22,6 +22,8 @@ EXE_PATH = $(F_MASTER)bin/
 # PART 1: Define the libraries, driver programs, and executables
 #========================================================================
 
+.DEFAULT_GOAL := all
+
 # Define the fortran compiler. 
 #FC = ifort
 FC = gfortran
@@ -43,16 +45,33 @@ endif
 LIBRARIES = $(LIB_NETCDF)
 INCLUDE = $(INC_NETCDF)
 
-# Define the driver program and associated subroutines for the fidelity test
-FUSE_DRIVER = \
-	sobol.f90 \
-  fuse_rmse.f90 \
-	functn.f90 \
-  fuse_driver.f90
-DRIVER = $(patsubst %, $(DRIVER_DIR)/%, $(FUSE_DRIVER))
+GENINC := $(F_MASTER)build/generated
+VERSIONFILE := $(GENINC)/fuseversion.inc
 
-# Define the executables
-DRIVER_EX = fuse.exe
+# Use /bin/sh-compatible commands
+VERSION    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "no-tag")
+BUILDTIME  := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+GITBRANCH  := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
+GITHASH    := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+
+GENINC := $(F_MASTER)build/generated
+VERSIONFILE := $(GENINC)/fuseversion.inc
+
+$(GENINC):
+	mkdir -p $@
+
+$(VERSIONFILE): | $(GENINC)
+	@{ \
+	  echo "! Auto-generated: do not edit"; \
+	  echo "integer, parameter :: FUSE_VERSION_LEN = 64"; \
+	  echo "integer, parameter :: FUSE_BUILDTIME_LEN = 32"; \
+	  echo "integer, parameter :: FUSE_GITBRANCH_LEN = 64"; \
+	  echo "integer, parameter :: FUSE_GITHASH_LEN = 64"; \
+	  printf "character(len=FUSE_VERSION_LEN),   parameter :: FUSE_VERSION    = '%s'\n" "$(VERSION)"; \
+	  printf "character(len=FUSE_BUILDTIME_LEN), parameter :: FUSE_BUILDTIME  = '%s'\n" "$(BUILDTIME)"; \
+	  printf "character(len=FUSE_GITBRANCH_LEN), parameter :: FUSE_GITBRANCH  = '%s'\n" "$(GITBRANCH)"; \
+	  printf "character(len=FUSE_GITHASH_LEN),   parameter :: FUSE_GITHASH    = '%s'\n" "$(GITHASH)"; \
+	} > $@
 
 #========================================================================
 # PART 2: Assemble all of the FUSE sub-routines
@@ -61,13 +80,25 @@ DRIVER_EX = fuse.exe
 # Define directories
 NUMREC_DIR  = $(F_KORE_DIR)FUSE_NR
 HOOKUP_DIR  = $(F_KORE_DIR)FUSE_HOOK
-DRIVER_DIR  = $(F_KORE_DIR)FUSE_DMSL
+DRIVER_DIR  = $(F_KORE_DIR)driver
 NETCDF_DIR  = $(F_KORE_DIR)FUSE_NETCDF
 DSHARE_DIR  = $(F_KORE_DIR)dshare
+PRELIM_DIR  = $(F_KORE_DIR)prelim
 PHYSICS_DIR = $(F_KORE_DIR)physics
 ENGINE_DIR  = $(F_KORE_DIR)FUSE_ENGINE
 SCE_DIR     = $(F_KORE_DIR)FUSE_SCE
 TIME_DIR    = $(F_KORE_DIR)FUSE_TIME
+
+# Define the executables
+DRIVER_EX = fuse.exe
+
+# Define the driver program and associated subroutines for the fidelity test
+FUSE_DRIVER = \
+	get_fuse_prelim.f90 \
+	fuse_rmse.f90 functn.f90 \
+	sce_driver.f90 \
+  fuse_driver.f90
+DRIVER = $(patsubst %, $(DRIVER_DIR)/%, $(FUSE_DRIVER))
 
 # Utility modules
 FUSE_UTILMS= \
@@ -178,9 +209,11 @@ SOLVER = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_SOLVER))
 
 # Define routines for FUSE preliminaries
 FUSE_PRELIM= \
+	parse_command_args.f90 \
 	ascii_util.f90 \
 	uniquemodl.f90 \
 	getnumerix.f90 \
+	force_info.f90 \
 	getparmeta.f90 \
 	assign_stt.f90 \
 	assign_flx.f90 \
@@ -193,11 +226,10 @@ FUSE_PRELIM= \
 	qtimedelay.f90 \
 	init_stats.f90 \
 	init_state.f90
-PRELIM = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_PRELIM))
+PRELIM = $(patsubst %, $(PRELIM_DIR)/%, $(FUSE_PRELIM))
 
 FUSE_MODRUN= \
 	conv_funcs.f90 \
-	force_info.f90 \
 	clrsky_rad.f90 \
 	getPETgrid.f90 \
 	get_mbands.f90 \
@@ -257,8 +289,8 @@ ifeq "$(FC)" "gfortran"
 endif
 
 # select a set of flags
-#FLAGS = $(FLAGS_NORMA)
-FLAGS = $(FLAGS_DEBUG)
+#FLAGS = $(FLAGS_NORMA) -I$(GENINC)
+FLAGS = $(FLAGS_DEBUG) -I$(GENINC)
 
 # MPI: FUSE with MPI has been compiled successfully with mpif90 and mpiifort.
 # Note: override must be specifed to enable FC passed as argument to be overridden
@@ -283,7 +315,9 @@ endif
 all: compile install clean
 
 # compile FUSE into a static library
-compile: sce_16plus.o
+compile: sce_16plus.o | $(GENINC)
+	@rm -f $(VERSIONFILE)
+	@$(MAKE) $(VERSIONFILE)
 	$(FC) $(FLAGS) $(FUSE_ALL) $(DRIVER) \
 	$(LIBRARIES) $(INCLUDE) $(MPI_FLAGS) -o $(DRIVER_EX)
 

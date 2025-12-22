@@ -36,6 +36,7 @@ MODULE FUSE_RMSE_MODULE
     USE multiforce, ONLY: numtim_sub_cur                     ! length of current subperiod
     USE multiforce, ONLY: sim_beg,sim_end                    ! timestep indices
     USE multiforce, ONLY: eval_beg,eval_end                  ! timestep indices
+    USE multiforce, ONLY: timdat                             ! time structure
 
     USE multiforce, ONLY:nspat1,nspat2                       ! spatial dimensions
     USE multiforce, ONLY:ncid_var                            ! NetCDF ID for forcing variables
@@ -50,8 +51,10 @@ MODULE FUSE_RMSE_MODULE
 
     ! code modules
     USE time_io, ONLY:get_modtim                             ! get model time for a given time step
-    USE get_gforce_module, ONLY:get_gforce_3d                ! get gridded forcing data for a range of time steps
-    USE getPETgrid_module, ONLY:getPETgrid                   ! get gridded PET
+    USE get_gforce_module, ONLY: get_gforce_3d               ! get gridded forcing data for a range of time steps
+    USE getPETgrid_module, ONLY: getPETgrid                  ! get gridded PET
+    USE put_params_module, ONLY: put_params                  ! write parameters 
+    USE put_output_module, ONLY: put_goutput_3d              ! write gridded output
     USE par_insert_module                                    ! insert parameters into data structures
     USE str_2_xtry_module                                    ! provide access to the routine str_2_xtry
     USE xtry_2_str_module                                    ! provide access to the routine xtry_2_str
@@ -144,6 +147,13 @@ MODULE FUSE_RMSE_MODULE
     CALL PAR_DERIVE(ERR,MESSAGE)
     IF (ERR.NE.0) WRITE(*,*) TRIM(MESSAGE); IF (ERR.GT.0) STOP
 
+    ! get elevation bands (if catchment)
+    if(SMODL%iSNOWM == iopt_temp_index .and. .not.GRID_FLAG)then
+     Z_FORCING    = Z_FORCING_grid(1,1)          ! elevation of forcing data (m)
+     MBANDS%AF    = MBANDS_INFO_3d(1,1,:)%AF     ! fraction of basin area in band (-)
+     MBANDS%Z_MID = MBANDS_INFO_3d(1,1,:)%Z_MID  ! band mid-point elevation (m)
+    endif
+
     if(isPrint) PRINT *, 'Writing parameter values...'
     CALL PUT_PARAMS(PCOUNT)
     
@@ -221,6 +231,7 @@ MODULE FUSE_RMSE_MODULE
       ! get the model time
       CALL get_modtim(itim_in,ncid_forc,ierr,message)
       IF(ierr/=0)THEN; PRINT*, TRIM(cmessage); STOP; ENDIF
+      !print*, timdat
 
       ! compute potential ET
       IF(computePET) CALL getPETgrid(ierr,cmessage)
@@ -316,6 +327,9 @@ MODULE FUSE_RMSE_MODULE
                 case default; print*, "fuse_rmse: Cannot identify diff_mode"; stop 1
               end select
 
+              !print*, ITIM_IN, w_flux%eff_ppt
+              !if(ITIM_IN > 100) stop "check"
+
               ! ----- end of soil physics code --------------------------------------------------------------
 
               ! perform overland flow routing
@@ -386,8 +400,8 @@ MODULE FUSE_RMSE_MODULE
 
         ! write model output
         IF (OUTPUT_FLAG) THEN
-          if(isPrint) PRINT *, 'Write output for ',numtim_sub_cur,' time steps starting at indice', itim_sim-numtim_sub_cur+1
-          CALL PUT_GOUTPUT_3D(itim_sim-numtim_sub_cur+1,itim_in-numtim_sub_cur+1,numtim_sub_cur,IPSET)
+          if(isPrint) PRINT *, 'Write output for ',numtim_sub_cur,' time steps starting at indices', itim_sim-numtim_sub_cur+1
+          CALL PUT_GOUTPUT_3D(itim_sim-numtim_sub_cur+1, itim_in-numtim_sub_cur+1, numtim_sub_cur)
           if(isPrint) PRINT *, 'Done writing output'
         ELSE
           if(isPrint) PRINT *, 'OUTPUT_FLAG is set on FALSE, no output written'

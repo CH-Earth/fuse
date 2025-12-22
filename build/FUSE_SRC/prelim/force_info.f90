@@ -6,7 +6,7 @@ private
 public::force_info
 contains
 
- SUBROUTINE force_info(fuse_mode,ierr,message)
+ SUBROUTINE force_info(ierr,message)
  ! ---------------------------------------------------------------------------------------
  ! Creator:
  ! --------
@@ -41,8 +41,6 @@ contains
  USE multiforce,only:numtim_sub                             ! number of time steps of subperiod (will be kept in memory)
 
  IMPLICIT NONE
- ! input
- CHARACTER(LEN=10) , intent(in)         :: fuse_mode        ! fuse execution mode (run_def, run_best, calib_sce)
  ! output
  integer(i4b), intent(out)              :: ierr                 ! error code
  character(*), intent(out)              :: message              ! error message

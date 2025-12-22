@@ -17,5 +17,8 @@ MODULE multiparam
  TYPE(PAR_ID), DIMENSION(MAXPAR)       :: LPARAM      ! list of model parameter names (need to modify to 16 for SCE)
  INTEGER(I4B)                          :: NUMPAR      ! number of model parameters for current model
  INTEGER(I4B)                          :: SOBOL_INDX  ! code to re-assemble Sobol parameters
+ integer(i4b)                          :: MAXN        ! maximum number of trials before optimization is terminated
+ integer(i4b)                          :: KSTOP       ! number of shuffling loops the value must change by PCENTO
+ REAL(MSP)                             :: PCENTO      ! the percentage
  ! --------------------------------------------------------------------------------------
 END MODULE multiparam

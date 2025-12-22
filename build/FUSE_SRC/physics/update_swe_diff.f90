@@ -39,6 +39,7 @@ contains
   USE nrtype                                               ! variable types, etc. (includes PI)
   USE data_types, only: parent                             ! fuse parent data type
   use smoothers,  only: smax, dsmax                        ! max smoothers
+  use smoothers,  only: smin, dsmin                        ! min smoothers (based on smax, dsmax)
   use smoothers,  only: sigmoid, dsigmoid                  ! sigmoid smoothers
   USE globaldata, only: NP => NPAR_SNOW                    ! number of snow parameters
   USE globaldata, only: iMBASE, iMFMAX, iMFMIN, iPXTEMP, iOPG, iLAPSE, &  ! indices in vectors
@@ -49,26 +50,45 @@ contains
   type(parent) , intent(inout)       :: fuseStruct         ! parent fuse data structure
   REAL(SP), INTENT(IN)               :: DT                 ! length of the time step
   logical(lgt), intent(in), optional :: want_dparam        ! if we want parameter derivatives
-  ! internal variables
+  ! ----- internal variables -----------------------------------------------------------------------------
+  ! general
+  INTEGER(I4B)                       :: ISNW               ! loop through snow model bands
+  REAL(SP)                           :: DZ                 ! vert. distance from forcing
+  real(sp)                           :: SWE_prev           ! SWE at start of band update (mm)
+  ! melt factor
   LOGICAL(LGT)                       :: LEAP               ! leap year flag
   REAL(SP)                           :: JDAY               ! Julian day of year
   integer(i4b)                       :: days_in_year       ! number of days in year (365 or 366)
   integer(i4b)                       :: phase_shift        ! shift in sine curve in days (80 or 81)
   real(sp)                           :: season01           ! seasonal cycle scaled to [0,1]
   REAL(SP)                           :: MF                 ! melt factor (mm/deg.C-6hr) -- NOTE: check units
-  REAL(SP)                           :: DZ                 ! vert. distance from forcing
-  real(sp)                           :: xOPG               ! scaled Orographic Precipitation Gradient (OPG)
-  real(sp)                           :: xLapse             ! scaled temperature lapse rate
+  ! adjusted precipitation (after precipitation multiplier)
+  real(sp), parameter                :: ms_mult=1.e-4_sp   ! smoothing in smax function (additive precip error)
   real(sp)                           :: precip_adj         ! adjusted precipitation (after multiplicative/additive error)
-  real(sp)                           :: xEXP               ! exponential scaling factor
-  REAL(SP)                           :: PRECIP_Z           ! band precipitation at timestep
+  ! temperature lapse (simple)
+  real(sp)                           :: xLapse             ! scaled temperature lapse rate
   REAL(SP)                           :: TEMP_Z             ! band temperature at timestep
-  INTEGER(I4B)                       :: ISNW               ! loop through snow model bands
+  ! orographic precipitation multiplier (OPG)
+  real(sp)                           :: xOPG               ! DZ * MPARAM%OPG/1000 -- scaled OPG (dimensionless)
+  real(sp), parameter                :: beta_DZ=100._sp    ! scaling facctor in sigmoid 1/(1+exp(-x/beta))
+  real(sp)                           :: sDZ                ! sigmoid gate on DZ
+  real(sp)                           :: fpos               ! positive-side formula: 1 + x
+  real(sp)                           :: fneg               ! megative-side formula: 1/(1-x)
+  real(sp)                           :: inv                ! 1-x: demominator in negative-side formula: 1/(1-x)
+  real(sp)                           :: inv_safe           ! safe denominator: smax(1-x, eps_inv, ms_inv)
+  real(sp), parameter                :: eps_inv=1.e-2_sp   ! denominator floor
+  real(sp), parameter                :: ms_inv=1.e-6_sp    ! smax smoothing factor for inv_safe
+  real(sp)                           :: OPG_mult           ! final OPG multiplier
+  REAL(SP)                           :: PRECIP_Z           ! band precipitation at timestep
+  ! partition rain from snow
   real(sp)                           :: fsnow              ! fraction of precip falling as snow (0–1)
   real(sp)                           :: snow               ! snowfall rate (mm/day) for this band
   real(sp)                           :: rain               ! rainfall rate (mm/day) for this band
   real(sp), parameter                :: beta_px=0.1_sp     ! sigmoid width for snow/rain partition (degC)
-  real(sp), parameter                :: ms=1.e-4_sp        ! smoothing in smax function
+  ! snowmelt
+  real(sp), parameter                :: ms_swe =1.e-4_sp   ! smoothing in smax function (SWE)
+  real(sp), parameter                :: ms_temp=1.e-4_sp   ! smoothing in smax function (temperature)
+  real(sp), parameter                :: ms_melt=1.e-10_sp  ! smoothing in smin function (snowmelt)
   real(sp)                           :: posTemp            ! positive-part temperature term used for melt (degC), smoothed
   real(sp)                           :: potMelt            ! potential melt rate before capping (mm/day)
   real(sp)                           :: meltCap            ! maximum feasible melt rate from availability (mm/day)
@@ -78,11 +98,11 @@ contains
   integer(i4b)                       :: cumdays(12)        ! cumulative days adjust for leap year
   ! internal variables: paraneter derivatives
   logical(lgt)            :: comp_dparam  ! flag to compute parameter derivatives
-  real(sp)                :: SWE_prev     ! SWE at start of band update (mm)
-  real(sp)                :: dMF(NP), dPadj(NP), dPrecZ(NP), dTempZ(NP)  ! derivative vectors
-  real(sp)                :: dfsnow(NP), dsnow(NP), drain(NP)            ! derivative vectors
-  real(sp)                :: df_dz
-  real(sp)                :: dposTemp(NP), dpotMelt(NP), dmeltCap(NP), dsnowmelt(NP)
+  real(sp)                :: df_dz        ! precip partitioning
+  real(sp)                :: ds_dDZ, dfpos_dOPG, dinv_dOPG, dinvsafe_dinv, dinvsafe_dOPG, dfneg_dOPG, dmult_dOPG  ! OPG
+  real(sp)                :: dMF(NP), dPadj(NP), dPrecZ(NP), dTempZ(NP)              ! derivative vectors
+  real(sp)                :: dfsnow(NP), dsnow(NP), drain(NP)                        ! derivative vectors
+  real(sp)                :: dposTemp(NP), dpotMelt(NP), dmeltCap(NP), dsnowmelt(NP) ! derivative vectors
   real(sp)                :: dSWE(NP), dSWE_new(NP)   ! persist dSWE between timesteps for each band
   real(sp)                :: w_pot, w_cap             ! smooth-min weights
   real(sp)                :: g_pos, g_cap, g_u        ! dsmax factors
@@ -142,7 +162,7 @@ contains
   ! ----- add error to the precipiation ---------------------------------------------------
 
   SELECT CASE(SMODL%iRFERR)
-   CASE(iopt_additive_e); precip_adj = smax(MFORCE%PPT + MPARAM%RFERR_ADD, 0._sp, ms)   ! additive error
+   CASE(iopt_additive_e); precip_adj = smax(MFORCE%PPT + MPARAM%RFERR_ADD, 0._sp, ms_mult)   ! additive error
    CASE(iopt_multiplc_e); precip_adj = MFORCE%PPT*MPARAM%RFERR_MLT                      ! multiplicative error
    CASE DEFAULT; stop "swe_update_diff: unable to identify precip error model"
   END SELECT
@@ -153,7 +173,7 @@ contains
      ! NOTE: parameter vector interprets theta(iPERR) as either RFERR_ADD or RFERR_MLT depending on SMODL%iRFERR
 
      SELECT CASE(SMODL%iRFERR)
-      CASE(iopt_additive_e); dPadj(iPERR) = dsmax(MFORCE%PPT + MPARAM%RFERR_ADD, 0._sp, ms)  ! additive error
+      CASE(iopt_additive_e); dPadj(iPERR) = dsmax(MFORCE%PPT + MPARAM%RFERR_ADD, 0._sp, ms_mult)  ! additive error
       CASE(iopt_multiplc_e); dPadj(iPERR) = MFORCE%PPT                                       ! multiplicative error
       CASE DEFAULT; stop "swe_update_diff: unable to identify precip error model"
      END SELECT
@@ -187,16 +207,46 @@ contains
 
    ! --- use the Orographic Precipitation Gradient (OPG) to adjust precip for elevation ---
 
+   ! dimensionless OPG
    DZ       = MBANDS(ISNW)%var%Z_MID - Z_FORC
-   xOPG     = MPARAM%OPG / 1000._sp        ! scaled OPG
-   xEXP     = exp(DZ * xOPG)               ! exponential scaling factor
-   PRECIP_Z = precip_adj * xEXP  ! NOTE: modified from the original branch structure
+   xOPG     = DZ * MPARAM%OPG / 1000._sp
+   
+   ! sigmoid gate on DZ
+   sDZ      = sigmoid(DZ, beta_DZ)
+   
+   ! positive-side formula: 1 + x
+   fpos     = 1._sp + xOPG
+   
+   ! negative-side formula: 1/(1-x), but with safe denominator
+   inv      = 1._sp - xOPG
+   inv_safe = smax(inv, eps_inv, ms_inv) ! floor inv smoothly to be >= eps
+   fneg     = 1._sp / inv_safe
+   
+   ! blended multiplier and band precip
+   OPG_mult = sDZ * fpos + (1._sp - sDZ) * fneg
+   PRECIP_Z = precip_adj * OPG_mult 
 
    ! compute derivatives
    if(comp_dparam)then
 
-     dPrecZ(:) = dPadj(:) * xEXP           ! chain from precip_adj
-     dPrecZ(iOPG) = dPrecZ(iOPG) + PRECIP_Z * (DZ/1000._sp)
+     ! derivative in sigmoid gate on DZ
+     ds_dDZ = dsigmoid(sDZ, beta_DZ)
+     
+     ! derivative of fpos wrt OPG
+     dfpos_dOPG = DZ  / 1000._sp
+     
+     ! derivative of fneg wrt OPG
+     dinv_dOPG     = -(DZ  / 1000._sp)
+     dinvsafe_dinv = dsmax(inv, eps_inv, ms_inv)
+     dinvsafe_dOPG = dinvsafe_dinv * dinv_dOPG
+     dfneg_dOPG    = -(1._sp / (inv_safe*inv_safe)) * dinvsafe_dOPG
+     
+     ! derivative of OPGmult wrt OPG
+     dmult_dOPG    = sDZ*dfpos_dOPG + (1._sp - sDZ)*dfneg_dOPG
+
+     ! final derivatives
+     dPrecZ(:)    = dPadj(:) * OPG_mult
+     dPrecZ(iOPG) = dPrecZ(iOPG) + precip_adj*dmult_dOPG
 
    endif  ! computing derivatives
    
@@ -233,21 +283,21 @@ contains
    ! ----- calculate the (smoothed) snow melt ---------------------------------------------
 
    ! potenital melt
-   posTemp = smax(TEMP_Z - MPARAM%MBASE, 0._sp, ms)   ! smoothed max(TEMP_Z - MPARAM%MBASE, 0)
+   posTemp = smax(TEMP_Z - MPARAM%MBASE, 0._sp, ms_temp)   ! smoothed max(TEMP_Z - MPARAM%MBASE, 0)
    potMelt = MF*posTemp   !  mm day-1
-  
+ 
    ! melt capped by availability of snow
-   meltCap = smax(snow + SWE_prev/DT, 0._sp, ms)
+   meltCap = smax(snow + SWE_prev/DT, 0._sp, ms_melt)
 
    ! smooth snowmelt
-   snowmelt = -smax(-potMelt, -meltCap, ms)   ! smooth min(potMelt, meltCap)
+   snowmelt = smin(potMelt, meltCap, ms_melt)   ! smooth min(potMelt, meltCap)
    MBANDS(ISNW)%var%SNOWMELT = snowmelt
   
    ! compute derivatives
    if(comp_dparam)then
 
      ! positive temperature: smoothed max(TEMP_Z - MPARAM%MBASE, 0)
-     g_pos            = dsmax(TEMP_Z - MPARAM%MBASE, 0._sp, ms)
+     g_pos            = dsmax(TEMP_Z - MPARAM%MBASE, 0._sp, ms_temp)
      dposTemp(:)      = g_pos * dTempZ(:)
      dposTemp(iMBASE) = dposTemp(iMBASE) - g_pos
 
@@ -255,12 +305,12 @@ contains
      dpotMelt(:) = dMF(:)*posTemp + MF*dposTemp(:)
      
      ! melt cap
-     g_cap   = dsmax(snow + SWE_prev/DT, 0._sp, ms)
+     g_cap   = dsmax(snow + SWE_prev/DT, 0._sp, ms_melt)
      dmeltCap(:) = g_cap * (dsnow(:) + dSWE(:)/DT)
 
      ! cap on snowmelt: smooth min weights
-     w_pot        = dsmax(-potMelt, -meltCap, ms)   ! ∂snowmelt/∂potMelt -- NOTE: minus sign cancels
-     w_cap        = 1._sp - w_pot                   ! ∂snowmelt/∂meltCap
+     w_pot        = dsmin(potMelt, meltCap, ms_melt)   ! ∂snowmelt/∂potMelt
+     w_cap        = 1._sp - w_pot                      ! ∂snowmelt/∂meltCap
      dsnowmelt(:) = w_pot*dpotMelt(:) + w_cap*dmeltCap(:)
 
    endif  ! computing derivatives
@@ -268,10 +318,10 @@ contains
    ! ----- update SWE ---------------------------------------------------------------------
    
    u_swe = SWE_prev + DT*(snow - snowmelt)
-   MBANDS(ISNW)%var%SWE = smax(u_swe, 0._sp, ms)
+   MBANDS(ISNW)%var%SWE = smax(u_swe, 0._sp, ms_swe)
 
    if(comp_dparam)then
-     g_u = dsmax(u_swe, 0._sp, ms)
+     g_u = dsmax(u_swe, 0._sp, ms_swe)
      dSWE_new(:) = g_u * ( dSWE(:) + DT*(dsnow(:) - dsnowmelt(:)) )
      DERIVS(ISNW)%dx%dSWE_dparam(:) = dSWE_new(:)
    endif
@@ -279,7 +329,7 @@ contains
    ! ----- calculate effective precip (rain + melt)  ---------------------------------------
 
    M_FLUX%EFF_PPT = M_FLUX%EFF_PPT + MBANDS(ISNW)%var%AF * (rain + snowmelt)
- 
+
    if(comp_dparam)then
      DERIVS(ISNW)%dx%dEffP_dParam(1:NP) = DERIVS(ISNW)%dx%dEffP_dParam(1:NP) + & 
                                           MBANDS(ISNW)%var%AF * (drain(:) + dsnowmelt(:))
