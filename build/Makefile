@@ -78,16 +78,19 @@ $(VERSIONFILE): | $(GENINC)
 #========================================================================
 
 # Define directories
-NUMREC_DIR  = $(F_KORE_DIR)FUSE_NR
-HOOKUP_DIR  = $(F_KORE_DIR)FUSE_HOOK
+NUMREC_DIR  = $(F_KORE_DIR)numrec
+HOOKUP_DIR  = $(F_KORE_DIR)hookup
 DRIVER_DIR  = $(F_KORE_DIR)driver
-NETCDF_DIR  = $(F_KORE_DIR)FUSE_NETCDF
+NETCDF_DIR  = $(F_KORE_DIR)netcdf
 DSHARE_DIR  = $(F_KORE_DIR)dshare
 PRELIM_DIR  = $(F_KORE_DIR)prelim
+RUNTIME_DIR = $(F_KORE_DIR)runtime
 PHYSICS_DIR = $(F_KORE_DIR)physics
-ENGINE_DIR  = $(F_KORE_DIR)FUSE_ENGINE
-SCE_DIR     = $(F_KORE_DIR)FUSE_SCE
-TIME_DIR    = $(F_KORE_DIR)FUSE_TIME
+OLDPHYS_DIR = $(F_KORE_DIR)physics_orig
+SOLVER_DIR  = $(F_KORE_DIR)solver_orig
+UTILMS_DIR  = $(F_KORE_DIR)util
+SCE_DIR     = $(F_KORE_DIR)sce
+TIME_DIR    = $(F_KORE_DIR)netcdf
 
 # Define the executables
 DRIVER_EX = fuse.exe
@@ -100,12 +103,12 @@ FUSE_DRIVER = \
   fuse_driver.f90
 DRIVER = $(patsubst %, $(DRIVER_DIR)/%, $(FUSE_DRIVER))
 
-# Utility modules
-FUSE_UTILMS= \
+# Manager modules
+FUSE_HOOKUP= \
 	kinds_dmsl_kit_FUSE.f90 \
 	utilities_dmsl_kit_FUSE.f90 \
 	fuse_fileManager.f90
-UTILMS = $(patsubst %, $(HOOKUP_DIR)/%, $(FUSE_UTILMS))
+HOOKUP = $(patsubst %, $(HOOKUP_DIR)/%, $(FUSE_HOOKUP))
 
 # Numerical Recipes utilities
 FUSE_NRUTIL= \
@@ -135,8 +138,8 @@ FUSE_TIMEMS=    \
   time_io.f90
 TIMUTILS = $(patsubst %, $(TIME_DIR)/%, $(FUSE_TIMEMS))
 
-# Information modules
-FUSE_INFOMS= \
+# Utility modules
+FUSE_UTILMS= \
 	metaoutput.f90 \
 	metaparams.f90 \
 	meta_stats.f90 \
@@ -149,7 +152,7 @@ FUSE_INFOMS= \
 	sumextract.f90 \
 	str_2_xtry.f90 \
 	xtry_2_str.f90
-INFOMS = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_INFOMS))
+UTILMS = $(patsubst %, $(UTILMS_DIR)/%, $(FUSE_UTILMS))
 
 # Numerical Recipes
 FUSE_NR_SUB= \
@@ -157,7 +160,7 @@ FUSE_NR_SUB= \
 	gammln.f90 gammp.f90 gcf.f90 gser.f90
 NR_SUB = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NR_SUB))
 
-# FUSE physics
+# FUSE physics (differentiable model)
 FUSE_PHYSICS= \
 	smoothers.f90 \
 	get_parent.f90 \
@@ -194,7 +197,7 @@ FUSE_MODGUT=\
 	wgt_fluxes.f90 \
 	updatstate.f90 \
 	q_overland.f90
-MODGUT = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_MODGUT))
+MODGUT = $(patsubst %, $(OLDPHYS_DIR)/%, $(FUSE_MODGUT))
 
 # Solver
 FUSE_SOLVER= \
@@ -205,7 +208,7 @@ FUSE_SOLVER= \
 	fmin.f90 fdjac_ode.f90 flux_deriv.f90 disaggflux.f90 \
 	fuse_sieul.f90 \
 	newtoniter.f90 lnsrch.f90
-SOLVER = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_SOLVER))
+SOLVER = $(patsubst %, $(SOLVER_DIR)/%, $(FUSE_SOLVER))
 
 # Define routines for FUSE preliminaries
 FUSE_PRELIM= \
@@ -228,7 +231,7 @@ FUSE_PRELIM= \
 	init_state.f90
 PRELIM = $(patsubst %, $(PRELIM_DIR)/%, $(FUSE_PRELIM))
 
-FUSE_MODRUN= \
+FUSE_RUNTIME= \
 	conv_funcs.f90 \
 	clrsky_rad.f90 \
 	getPETgrid.f90 \
@@ -240,7 +243,7 @@ FUSE_MODRUN= \
 	fuse_solve.f90 \
 	comp_stats.f90 \
 	mean_stats.f90
-MODRUN = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_MODRUN))
+RUNTIME = $(patsubst %, $(RUNTIME_DIR)/%, $(FUSE_RUNTIME))
 
 # Define NetCDF routines
 FUSE_NETCDF = \
@@ -261,8 +264,8 @@ SCE = \
 	sce_16plus.o
 
 # ... and stitch it all together...
-FUSE_ALL = $(UTILMS) $(NRUTIL) $(DATAMS) $(TIMUTILS) $(INFOMS) \
-	$(NR_SUB) $(PHYSICS) $(MODGUT) $(SOLVER) $(PRELIM) $(MODRUN) \
+FUSE_ALL = $(HOOKUP) $(NRUTIL) $(DATAMS) $(TIMUTILS) $(UTILMS) \
+	$(NR_SUB) $(PHYSICS) $(MODGUT) $(SOLVER) $(PRELIM) $(RUNTIME) \
 	$(NETCDF) $(SCE)
 
 #========================================================================
