@@ -70,43 +70,38 @@ contains
   REAL(SP)                           :: TEMP_Z             ! band temperature at timestep
   ! orographic precipitation multiplier (OPG)
   real(sp)                           :: xOPG               ! DZ * MPARAM%OPG/1000 -- scaled OPG (dimensionless)
-  real(sp), parameter                :: beta_DZ=100._sp    ! scaling facctor in sigmoid 1/(1+exp(-x/beta))
-  real(sp)                           :: sDZ                ! sigmoid gate on DZ
+  real(sp)                           :: gate               ! hard [0,1] gate on DZ
   real(sp)                           :: fpos               ! positive-side formula: 1 + x
   real(sp)                           :: fneg               ! megative-side formula: 1/(1-x)
   real(sp)                           :: inv                ! 1-x: demominator in negative-side formula: 1/(1-x)
-  real(sp)                           :: inv_safe           ! safe denominator: smax(1-x, eps_inv, ms_inv)
-  real(sp), parameter                :: eps_inv=1.e-2_sp   ! denominator floor
-  real(sp), parameter                :: ms_inv=1.e-6_sp    ! smax smoothing factor for inv_safe
+  real(sp)                           :: inv_safe           ! safe denominator: max(1-x, eps_inv)
+  real(sp), parameter                :: eps_inv=1.e-6_sp   ! denominator floor: dimensionless
   real(sp)                           :: OPG_mult           ! final OPG multiplier
   REAL(SP)                           :: PRECIP_Z           ! band precipitation at timestep
   ! partition rain from snow
   real(sp)                           :: fsnow              ! fraction of precip falling as snow (0–1)
   real(sp)                           :: snow               ! snowfall rate (mm/day) for this band
   real(sp)                           :: rain               ! rainfall rate (mm/day) for this band
-  real(sp), parameter                :: beta_px=0.1_sp     ! sigmoid width for snow/rain partition (degC)
+  real(sp), parameter                :: beta_px=0.01_sp    ! sigmoid width for snow/rain partition (degC)
   ! snowmelt
-  real(sp), parameter                :: ms_swe =1.e-4_sp   ! smoothing in smax function (SWE)
   real(sp), parameter                :: ms_temp=1.e-4_sp   ! smoothing in smax function (temperature)
-  real(sp), parameter                :: ms_melt=1.e-10_sp  ! smoothing in smin function (snowmelt)
   real(sp)                           :: posTemp            ! positive-part temperature term used for melt (degC), smoothed
   real(sp)                           :: potMelt            ! potential melt rate before capping (mm/day)
   real(sp)                           :: meltCap            ! maximum feasible melt rate from availability (mm/day)
   real(sp)                           :: snowmelt           ! final (capped) melt rate (mm/day)
+  real(sp)                           :: swe_eps=1.e-12_sp  ! small value for the derivative switch in u_swe clamp
+  real(sp)                           :: u_swe              ! pre-clamp SWE update
   integer(i4b), parameter :: cumdays0(12) = [ &            ! cumulative days before the start of each month
    0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 ]
   integer(i4b)                       :: cumdays(12)        ! cumulative days adjust for leap year
   ! internal variables: paraneter derivatives
   logical(lgt)            :: comp_dparam  ! flag to compute parameter derivatives
   real(sp)                :: df_dz        ! precip partitioning
-  real(sp)                :: ds_dDZ, dfpos_dOPG, dinv_dOPG, dinvsafe_dinv, dinvsafe_dOPG, dfneg_dOPG, dmult_dOPG  ! OPG
-  real(sp)                :: dMF(NP), dPadj(NP), dPrecZ(NP), dTempZ(NP)              ! derivative vectors
-  real(sp)                :: dfsnow(NP), dsnow(NP), drain(NP)                        ! derivative vectors
-  real(sp)                :: dposTemp(NP), dpotMelt(NP), dmeltCap(NP), dsnowmelt(NP) ! derivative vectors
-  real(sp)                :: dSWE(NP), dSWE_new(NP)   ! persist dSWE between timesteps for each band
-  real(sp)                :: w_pot, w_cap             ! smooth-min weights
-  real(sp)                :: g_pos, g_cap, g_u        ! dsmax factors
-  real(sp)                :: u_swe                    ! pre-clamp SWE update
+  real(sp)                :: active, dfpos_dOPG, dinv_dOPG, dfneg_dOPG, dmult_dOPG  ! OPG
+  real(sp)                :: dMF(NP), dPadj(NP), dPrecZ(NP), dTempZ(NP)  ! derivative vectors
+  real(sp)                :: dfsnow(NP), dsnow(NP), drain(NP)            ! derivative vectors
+  real(sp)                :: g_pos, dposTemp(NP), dpotMelt(NP), dsnowmelt(NP)   ! derivative vectors
+  real(sp)                :: g_u, dSWE(NP), dSWE_new(NP)   ! persist dSWE between timesteps for each band
   ! ---------------------------------------------------------------------------------------
   ! associate variables with elements of data structure
   associate(&
@@ -180,6 +175,12 @@ contains
 
   endif  ! computing derivatives
 
+  ! ----- check OPG -----------------------------------------------------------------------
+ 
+  if (MPARAM%OPG < 0._sp) then
+    stop "swe_update_diff: OPG < 0 not allowed with hard-gate OPG scheme"
+  end if
+
   ! ---------------------------------------------------------------------------------------
   ! ---------------------------------------------------------------------------------------
 
@@ -199,7 +200,7 @@ contains
    if(comp_dparam)then
     dPrecZ(:) = 0._sp; dTempZ(:) = 0._sp
     dfsnow(:) = 0._sp; dsnow(:) = 0._sp; drain(:) = 0._sp
-    dposTemp(:)=0._sp; dpotMelt(:)=0._sp; dmeltCap(:)=0._sp; dsnowmelt(:)=0._sp 
+    dposTemp(:)=0._sp; dpotMelt(:)=0._sp; dsnowmelt(:)=0._sp 
   endif
 
    ! copy the stored sensitivity of SWE from the previous timestep to propagate it forward
@@ -211,38 +212,34 @@ contains
    DZ       = MBANDS(ISNW)%var%Z_MID - Z_FORC
    xOPG     = DZ * MPARAM%OPG / 1000._sp
    
-   ! sigmoid gate on DZ
-   sDZ      = sigmoid(DZ, beta_DZ)
+   ! hard [0,1] gate by DZ sign (no smoothing): preserves original code from Henn et al.
+   gate     = merge(1._sp, 0._sp, DZ >= 0._sp)   ! gate = 1 if DZ >= 0
    
    ! positive-side formula: 1 + x
    fpos     = 1._sp + xOPG
    
-   ! negative-side formula: 1/(1-x), but with safe denominator
+   ! negative-side formula: 1/(1-x), but with hard floor on denominator
    inv      = 1._sp - xOPG
-   inv_safe = smax(inv, eps_inv, ms_inv) ! floor inv smoothly to be >= eps
+   inv_safe = max(inv, eps_inv)     ! hard floor
    fneg     = 1._sp / inv_safe
    
    ! blended multiplier and band precip
-   OPG_mult = sDZ * fpos + (1._sp - sDZ) * fneg
+   OPG_mult = gate * fpos + (1._sp - gate) * fneg
    PRECIP_Z = precip_adj * OPG_mult 
 
    ! compute derivatives
    if(comp_dparam)then
 
-     ! derivative in sigmoid gate on DZ
-     ds_dDZ = dsigmoid(sDZ, beta_DZ)
-     
      ! derivative of fpos wrt OPG
      dfpos_dOPG = DZ  / 1000._sp
-     
+
      ! derivative of fneg wrt OPG
-     dinv_dOPG     = -(DZ  / 1000._sp)
-     dinvsafe_dinv = dsmax(inv, eps_inv, ms_inv)
-     dinvsafe_dOPG = dinvsafe_dinv * dinv_dOPG
-     dfneg_dOPG    = -(1._sp / (inv_safe*inv_safe)) * dinvsafe_dOPG
-     
-     ! derivative of OPGmult wrt OPG
-     dmult_dOPG    = sDZ*dfpos_dOPG + (1._sp - sDZ)*dfneg_dOPG
+     active     = merge(1._sp, 0._sp, inv >= eps_inv)  ! deriv is zero if inv is clamped at eps_inv
+     dinv_dOPG  = -(DZ / 1000._sp) ! inv = 1 - xOPG,  xOPG = DZ*OPG/1000
+     dfneg_dOPG = -(1._sp/(inv_safe*inv_safe)) * (active * dinv_dOPG)
+
+     ! derivative of OPG_mult (ignore derivative of the hard gate)
+     dmult_dOPG = gate*dfpos_dOPG + (1._sp-gate)*dfneg_dOPG
 
      ! final derivatives
      dPrecZ(:)    = dPadj(:) * OPG_mult
@@ -286,11 +283,9 @@ contains
    posTemp = smax(TEMP_Z - MPARAM%MBASE, 0._sp, ms_temp)   ! smoothed max(TEMP_Z - MPARAM%MBASE, 0)
    potMelt = MF*posTemp   !  mm day-1
  
-   ! melt capped by availability of snow
-   meltCap = smax(snow + SWE_prev/DT, 0._sp, ms_melt)
-
-   ! smooth snowmelt
-   snowmelt = smin(potMelt, meltCap, ms_melt)   ! smooth min(potMelt, meltCap)
+   ! cap snowmelt
+   meltCap  = SWE_prev/DT
+   snowmelt = min(potMelt, meltCap) ! hard clamp: allow a kink at SWE=0 to avoid "ghost snow"
    MBANDS(ISNW)%var%SNOWMELT = snowmelt
   
    ! compute derivatives
@@ -305,23 +300,17 @@ contains
      dpotMelt(:) = dMF(:)*posTemp + MF*dposTemp(:)
      
      ! melt cap
-     g_cap   = dsmax(snow + SWE_prev/DT, 0._sp, ms_melt)
-     dmeltCap(:) = g_cap * (dsnow(:) + dSWE(:)/DT)
-
-     ! cap on snowmelt: smooth min weights
-     w_pot        = dsmin(potMelt, meltCap, ms_melt)   ! ∂snowmelt/∂potMelt
-     w_cap        = 1._sp - w_pot                      ! ∂snowmelt/∂meltCap
-     dsnowmelt(:) = w_pot*dpotMelt(:) + w_cap*dmeltCap(:)
+     dsnowmelt(:) = merge(dpotMelt(:), dSWE(:)/DT, potMelt < meltcap)
 
    endif  ! computing derivatives
 
    ! ----- update SWE ---------------------------------------------------------------------
-   
+  
    u_swe = SWE_prev + DT*(snow - snowmelt)
-   MBANDS(ISNW)%var%SWE = smax(u_swe, 0._sp, ms_swe)
+   MBANDS(ISNW)%var%SWE = max(u_swe, 0._sp)  ! hard clamp just removes numerical noise
 
    if(comp_dparam)then
-     g_u = dsmax(u_swe, 0._sp, ms_swe)
+     g_u = merge(1._sp, 0._sp, u_swe > swe_eps) ! sensitivities zero in snow free periods
      dSWE_new(:) = g_u * ( dSWE(:) + DT*(dsnow(:) - dsnowmelt(:)) )
      DERIVS(ISNW)%dx%dSWE_dparam(:) = dSWE_new(:)
    endif

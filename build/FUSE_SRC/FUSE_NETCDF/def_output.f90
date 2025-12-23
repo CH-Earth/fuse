@@ -47,8 +47,9 @@ MODULE DEF_OUTPUT_MODULE
   INTEGER(I4B), INTENT(IN)               :: n_bands        ! number of elevation bands
 
   ! internal
-  REAL(MSP),DIMENSION(nspat1)            :: longitude_msp        ! desired variable (SINGLE PRECISION)
-  REAL(MSP),DIMENSION(nspat2)            :: latitude_msp         ! desired variable (SINGLE PRECISION)
+  integer(i4b), dimension(n_bands)       :: band_i               ! coordinate variable
+  REAL(MSP),DIMENSION(nspat1)            :: longitude_msp        ! coordinate variable (SINGLE PRECISION)
+  REAL(MSP),DIMENSION(nspat2)            :: latitude_msp         ! coordinate variable (SINGLE PRECISION)
   REAL(SP),parameter                     :: NA_VALUE_OUT= -9999. ! NA_VALUE for output file
   REAL(MSP)                              :: NA_VALUE_OUT_MSP     ! NA_VALUE for output file
 
@@ -60,6 +61,7 @@ MODULE DEF_OUTPUT_MODULE
   INTEGER(I4B)                           :: band_dim    ! band dimension
   INTEGER(I4B), DIMENSION(3)             :: TVAR        ! dimension list: exclude band
   INTEGER(I4B), DIMENSION(4)             :: EVAR        ! dimension list: include band
+  integer(i4b)                           :: ib          ! loop through bands
   INTEGER(I4B)                           :: IVAR        ! loop through variables
   INTEGER(I4B)                           :: IVAR_ID     ! variable ID
 
@@ -150,6 +152,10 @@ MODULE DEF_OUTPUT_MODULE
   longitude_msp=longitude ! convert to actual single precision
   IERR = NF_INQ_VARID(ncid_out,'longitude',IVAR_ID); CALL HANDLE_ERR(IERR) ! get variable ID
   IERR = NF_PUT_VARA_REAL(ncid_out,IVAR_ID,1,nspat1,longitude_msp); CALL HANDLE_ERR(IERR) ! write data
+
+  band_i = [(ib, ib=1,n_bands)]   ! 1..n_bands
+  ierr = NF_INQ_VARID(ncid_out, 'band', ivar_id); call HANDLE_ERR(ierr)
+  ierr = NF_PUT_VARA_INT(ncid_out, ivar_id, (/1/), (/n_bands/), band_i); call HANDLE_ERR(ierr)
 
   PRINT *, 'NetCDF file for model runs defined with dimensions', n_bands, nSpat1 , nSpat2, NTIM
 
