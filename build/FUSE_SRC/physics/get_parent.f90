@@ -1,7 +1,8 @@
 module get_parent_module
   use nrtype
   use data_types, only: parent
-  USE model_defn, ONLY:NSTATE
+  USE model_defn, ONLY: NSTATE
+  USE multiparam, ONLY: NUMPAR
   implicit none
 
 contains
@@ -15,6 +16,7 @@ contains
   implicit none
   type(parent), intent(inout) :: fuseStruct
   integer(i4b)                :: iState
+  integer(i4b)                :: iParam
 
   ! populate parent fuse structures
   fuseStruct%time         = timdat
@@ -26,9 +28,14 @@ contains
   fuseStruct%param_adjust = mParam
   fuseStruct%param_derive = dParam
 
-  ! initialize derivatives
+  ! initialize flux derivatives
   do iState=1,nState
    fuseStruct%df_dS(iState) = m_flux ! initialized at zero
+  end do
+
+  ! initialize parameter derivatives
+  do iParam=1,NUMPAR
+   fuseStruct%df_dPar(iParam) = m_flux ! initialized at zero
   end do
 
   end subroutine get_parent

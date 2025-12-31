@@ -3,8 +3,8 @@ MODULE multistate
  use data_types, only: statev, m_time   ! <— import canonical types
  
  ! variable definitions
- type(statev),dimension(:,:),pointer   :: gState     ! (grid of model states)
- type(statev),dimension(:,:,:),pointer :: gState_3d  ! (grid of model states with a time dimension)
+ type(statev) , dimension(:,:)   , allocatable :: gState     ! (grid of model states)
+ type(statev) , dimension(:,:,:) , allocatable :: gState_3d  ! (grid of model states with a time dimension)
  TYPE(STATEV)                          :: ASTATE     ! (model states at the start of full timestep)
  TYPE(STATEV)                          :: FSTATE     ! (model states at start of sub-timestep)
  TYPE(STATEV)                          :: MSTATE     ! (model states at start/middle of sub-timestep)

@@ -39,7 +39,7 @@ contains
     ! snow model
 
     DO ISNW=1,N_BANDS
-     MBANDS(ISNW)%SWE = VAL
+     MBANDS(ISNW)%var%SWE = VAL
     END DO
 
     FSTATE%SWE_TOT = VAL
@@ -88,8 +88,8 @@ contains
     M_FLUX%OFLOW_2B    = VAL; W_FLUX%OFLOW_2B    = VAL
     IF(SMODL%iSNOWM.EQ.iopt_temp_index) THEN !loop through snow model bands
      DO ISNW=1,N_BANDS
-      MBANDS(ISNW)%SNOWACCMLTN  = VAL
-      MBANDS(ISNW)%SNOWMELT     = VAL
+      MBANDS(ISNW)%var%SNOWACCMLTN  = VAL
+      MBANDS(ISNW)%var%SNOWMELT     = VAL
      END DO
     ENDIF
     M_FLUX%ERR_WATR_1  = VAL; W_FLUX%ERR_WATR_1  = VAL
@@ -153,10 +153,10 @@ contains
 
     ! ---------------------------------------------------------------------------------------
     DO IBANDS=1,N_BANDS
-       MBANDS(IBANDS)%SWE=VAL           ! band snowpack water equivalent (mm)
-       MBANDS(IBANDS)%SNOWACCMLTN=VAL   ! new snow accumulation in band (mm day-1)
-       MBANDS(IBANDS)%SNOWMELT=VAL      ! snowmelt in band (mm day-1)
-       MBANDS(IBANDS)%DSWE_DT=VAL       ! rate of change of band SWE (mm day-1)
+       MBANDS(IBANDS)%var%SWE=VAL           ! band snowpack water equivalent (mm)
+       MBANDS(IBANDS)%var%SNOWACCMLTN=VAL   ! new snow accumulation in band (mm day-1)
+       MBANDS(IBANDS)%var%SNOWMELT=VAL      ! snowmelt in band (mm day-1)
+       MBANDS(IBANDS)%var%DSWE_DT=VAL       ! rate of change of band SWE (mm day-1)
     END DO
 
     ! ---------------------------------------------------------------------------------------

@@ -97,7 +97,8 @@ DRIVER_EX = fuse.exe
 
 # Define the driver program and associated subroutines for the fidelity test
 FUSE_DRIVER = \
-	get_fuse_prelim.f90 \
+	setup_domain.f90 \
+	setup_model_definition.f90 \
 	fuse_rmse.f90 functn.f90 \
 	sce_driver.f90 \
   fuse_driver.f90
@@ -106,8 +107,7 @@ DRIVER = $(patsubst %, $(DRIVER_DIR)/%, $(FUSE_DRIVER))
 # Manager modules
 FUSE_HOOKUP= \
 	kinds_dmsl_kit_FUSE.f90 \
-	utilities_dmsl_kit_FUSE.f90 \
-	fuse_fileManager.f90
+	utilities_dmsl_kit_FUSE.f90
 HOOKUP = $(patsubst %, $(HOOKUP_DIR)/%, $(FUSE_HOOKUP))
 
 # Numerical Recipes utilities
@@ -140,6 +140,9 @@ TIMUTILS = $(patsubst %, $(TIME_DIR)/%, $(FUSE_TIMEMS))
 
 # Utility modules
 FUSE_UTILMS= \
+	fuse_fileManager.f90 \
+	alloc_domain.f90 \
+	alloc_scratch.f90 \
 	metaoutput.f90 \
 	metaparams.f90 \
 	meta_stats.f90 \
@@ -235,8 +238,8 @@ FUSE_RUNTIME= \
 	conv_funcs.f90 \
 	clrsky_rad.f90 \
 	getPETgrid.f90 \
-	get_mbands.f90 \
-	get_time_indices.f90\
+	get_time_windows.f90 \
+	get_time_indices.f90 \
 	initfluxes.f90 \
 	set_all.f90 \
 	ode_int.f90 \
@@ -249,7 +252,9 @@ RUNTIME = $(patsubst %, $(RUNTIME_DIR)/%, $(FUSE_RUNTIME))
 FUSE_NETCDF = \
     handle_err.f90 \
     extractor.f90 juldayss.f90 caldatss.f90 \
-    get_gforce.f90 \
+    domain_decomp.f90 \
+		get_gforce.f90 \
+		get_mbands.f90 \
     get_smodel.f90 \
 		get_fparam.f90 \
     def_params.f90 \
@@ -264,7 +269,7 @@ SCE = \
 	sce_16plus.o
 
 # ... and stitch it all together...
-FUSE_ALL = $(HOOKUP) $(NRUTIL) $(DATAMS) $(TIMUTILS) $(UTILMS) \
+FUSE_ALL = $(HOOKUP) $(NRUTIL) $(DATAMS) $(UTILMS) $(TIMUTILS) \
 	$(NR_SUB) $(PHYSICS) $(MODGUT) $(SOLVER) $(PRELIM) $(RUNTIME) \
 	$(NETCDF) $(SCE)
 

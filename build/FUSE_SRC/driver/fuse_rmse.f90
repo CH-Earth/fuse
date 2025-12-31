@@ -55,6 +55,7 @@ MODULE FUSE_RMSE_MODULE
     USE getPETgrid_module, ONLY: getPETgrid                  ! get gridded PET
     USE put_params_module, ONLY: put_params                  ! write parameters 
     USE put_output_module, ONLY: put_goutput_3d              ! write gridded output
+    USE PAR_DERIVE_module, ONLY: PAR_DERIVE
     USE par_insert_module                                    ! insert parameters into data structures
     USE str_2_xtry_module                                    ! provide access to the routine str_2_xtry
     USE xtry_2_str_module                                    ! provide access to the routine xtry_2_str
@@ -114,9 +115,9 @@ MODULE FUSE_RMSE_MODULE
     ALLOCATE(STATE0(NSTATE),STATE1(NSTATE),STAT=IERR)
     IF (IERR.NE.0) STOP ' problem allocating space for state vectors in fuse_rmse'
 
-    ! allocate flux derivative vector
-    allocate(fuseStruct%df_dS(nState), stat=ierr)
-    if(ierr/=0) STOP ' problem allocating space for the flux derivative vector'
+    ! allocate flux derivative vectors
+    allocate(fuseStruct%df_dS(nState), fuseStruct%df_dPar(NUMPAR), fuseStruct%dL_dPar(NUMPAR), stat=ierr)
+    if(ierr/=0) STOP ' problem allocating space for the flux derivative vectors'
 
     ! allocate elevation bands (for the snow model)
     allocate(fuseStruct%sbands(n_bands), stat=ierr)
@@ -124,11 +125,9 @@ MODULE FUSE_RMSE_MODULE
 
     ! allocate parameter derivative for each elevation band
     do iBands=1,n_bands
-     allocate(fuseStruct%sbands(iBands)%dx%dSWE_dParam(NPAR_SNOW), &
-              fuseStruct%sbands(iBands)%dx%dEffP_dParam(NUMPAR),   stat=ierr)
+     allocate(fuseStruct%sbands(iBands)%var%dSWE_dParam(NPAR_SNOW), stat=ierr)
      if(ierr/=0) STOP ' problem allocating space for the parameter derivatives'
-     fuseStruct%sbands(iBands)%dx%dSWE_dparam(:) = 0._sp
-     fuseStruct%sbands(iBands)%dx%dEffP_dParam(:) = 0._sp
+     fuseStruct%sbands(iBands)%var%dSWE_dparam(:) = 0._sp
     end do
 
     ! increment parameter counter for model output
@@ -149,9 +148,8 @@ MODULE FUSE_RMSE_MODULE
 
     ! get elevation bands (if catchment)
     if(SMODL%iSNOWM == iopt_temp_index .and. .not.GRID_FLAG)then
-     Z_FORCING    = Z_FORCING_grid(1,1)          ! elevation of forcing data (m)
-     MBANDS%AF    = MBANDS_INFO_3d(1,1,:)%AF     ! fraction of basin area in band (-)
-     MBANDS%Z_MID = MBANDS_INFO_3d(1,1,:)%Z_MID  ! band mid-point elevation (m)
+     Z_FORCING       = Z_FORCING_grid(1,1)          ! elevation of forcing data (m)
+     MBANDS(:)%info  = MBANDS_INFO_3d(1,1,:)        ! info structure, %AF, %Z_MID
     endif
 
     if(isPrint) PRINT *, 'Writing parameter values...'
@@ -171,18 +169,26 @@ MODULE FUSE_RMSE_MODULE
     ! initialize elevations bands if snow module is on
     if(isPrint) PRINT *, 'N_BANDS =', N_BANDS
     IF (SMODL%iSNOWM.EQ.iopt_temp_index) THEN
+          
+      ! initialize the per-band template once
+      ! (dSWE_dParam allocated & initialized earlier)
+      fuseStruct%sbands(:)%var%SWE         = 0._sp ! band snowpack water equivalent (mm)
+      fuseStruct%sbands(:)%var%SNOWACCMLTN = 0._sp ! new snow accumulation in band (mm day-1)
+      fuseStruct%sbands(:)%var%SNOWMELT    = 0._sp ! snowmelt in band (mm day-1)
+      fuseStruct%sbands(:)%var%DSWE_DT     = 0._sp ! rate of change of band SWE (mm day-1)
+
+      ! copy to every grid cell
       DO iSpat2=1,nSpat2
         DO iSpat1=1,nSpat1
-         DO IBANDS=1,N_BANDS
-            MBANDS_VAR_4d(iSpat1,iSpat2,IBANDS,1)%SWE=0.0_sp         ! band snowpack water equivalent (mm)
-            MBANDS_VAR_4d(iSpat1,iSpat2,IBANDS,1)%SNOWACCMLTN=0.0_sp ! new snow accumulation in band (mm day-1)
-            MBANDS_VAR_4d(iSpat1,iSpat2,IBANDS,1)%SNOWMELT=0.0_sp    ! snowmelt in band (mm day-1)
-            MBANDS_VAR_4d(iSpat1,iSpat2,IBANDS,1)%DSWE_DT=0.0_sp     ! rate of change of band SWE (mm day-1)
-          END DO
-        END DO
-      END DO
+          do iBands=1,n_bands
+            MBANDS_VAR_4d(iSpat1,iSpat2,iBands,1) = fuseStruct%sbands(iBands)%var
+          end do  ! elevation bands
+        end do  ! 1st spatial dimension
+      end do  ! 2nd spatial dimension
+
       if(isPrint) PRINT *, 'Snow states initiatlized over the 2D gridded domain '
-    ENDIF
+    
+    ENDIF  ! if snow model is on
 
     ! allocate 3d data structure for fluxes
     ALLOCATE(W_FLUX_3d(nspat1,nspat2,numtim_sub))
@@ -196,7 +202,8 @@ MODULE FUSE_RMSE_MODULE
     CALL CPU_TIME(T1)
 
     ! This version of FUSE enables the user to load slices of the forcing
-    ! - FUSE1 used to access the input file at each time step, slowing operations
+    ! 
+    ! FUSE1 used to access the input file at each time step, slowing operations
     ! down over large domains on systems with slow I/O. The number of timesteps
     ! of the slices is defined by the user in the filemanager. The default is
     ! that the whole time period needed for the simulation is loaded, but
@@ -277,17 +284,14 @@ MODULE FUSE_RMSE_MODULE
 
                   ! load data from multidimensional arrays
                   Z_FORCING          = Z_FORCING_grid(iSpat1,iSpat2)                       ! elevation of forcing data (m)
-                  MBANDS%Z_MID       = MBANDS_INFO_3d(iSpat1,iSpat2,:)%Z_MID               ! band mid-point elevation (m)
-                  MBANDS%AF          = MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF                  ! fraction of basin area in band (-)
-                  MBANDS%SWE         = MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub)%SWE         ! band snowpack water equivalent (mm)
-                  MBANDS%SNOWACCMLTN = MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub)%SNOWACCMLTN ! new snow accumulation in band (mm day-1)
-                  MBANDS%SNOWMELT    = MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub)%SNOWMELT    ! snowmelt in band (mm day-1)
-                  MBANDS%DSWE_DT     = MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub)%DSWE_DT     ! rate of change of band SWE (mm day-1)
+                  mbands(:)%info     = MBANDS_INFO_3d(iSpat1,iSpat2,:)                     ! info structure
+                  mbands(:)%var      = MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub)             ! var structure
 
                   ! put data into the FUSE structure
                   if(diff_mode == differentiable)then
-                   fuseStruct%sbands%var = MBANDS
-                   fuseStruct%z_forcing  = Z_FORCING
+                   fuseStruct%sbands(:)%info = MBANDS(:)%info
+                   fuseStruct%sbands(:)%var  = MBANDS(:)%var
+                   fuseStruct%z_forcing      = Z_FORCING
                   endif  ! if diff_mode == differentiable
 
                   ! run the snow model
@@ -354,18 +358,15 @@ MODULE FUSE_RMSE_MODULE
 
                 ! extract data from the FUSE structure
                 if(diff_mode == differentiable)then
-                 MBANDS    = fuseStruct%sbands%var 
+                 MBANDS    = fuseStruct%sbands  ! gets full structure (info and vars) 
                  Z_FORCING = fuseStruct%z_forcing  
                 endif  ! if diff_mode == differentiable
                 
                 ! SWE TOT: weighted average of SWE over all the elevation bands
-                gState_3d(iSpat1,iSpat2,itim_sub+1)%SWE_TOT = SUM(MBANDS%SWE*MBANDS_INFO_3d(iSpat1,iSpat2,:)%AF)
+                gState_3d(iSpat1,iSpat2,itim_sub+1)%SWE_TOT = SUM(MBANDS(:)%var%SWE * MBANDS(:)%info%AF)
 
                 ! update MBANDS_VAR_4D
-                MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub+1)%SWE         = MBANDS%SWE
-                MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub+1)%SNOWACCMLTN = MBANDS%SNOWACCMLTN
-                MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub+1)%SNOWMELT    = MBANDS%SNOWMELT
-                MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub+1)%DSWE_DT     = MBANDS%DSWE_DT
+                MBANDS_VAR_4d(iSpat1,iSpat2,:,itim_sub+1) = MBANDS(:)%var
 
               END IF
 
@@ -410,11 +411,8 @@ MODULE FUSE_RMSE_MODULE
         ! TODO: set gState_3d and MBANDS_VAR_4d to NA
 
         ! reinitialize states for next subperiod using last time step
-        gState_3d(:,:,1) = gState_3d(:,:,itim_sub+1)
-        MBANDS_VAR_4d(:,:,:,1)%SWE         = MBANDS_VAR_4d(:,:,:,itim_sub+1)%SWE
-        MBANDS_VAR_4d(:,:,:,1)%SNOWACCMLTN = MBANDS_VAR_4d(:,:,:,itim_sub+1)%SNOWACCMLTN
-        MBANDS_VAR_4d(:,:,:,1)%SNOWMELT    = MBANDS_VAR_4d(:,:,:,itim_sub+1)%SNOWMELT
-        MBANDS_VAR_4d(:,:,:,1)%DSWE_DT     = MBANDS_VAR_4d(:,:,:,itim_sub+1)%DSWE_DT
+        gState_3d(:,:,1)       = gState_3d(:,:,itim_sub+1)
+        MBANDS_VAR_4d(:,:,:,1) = MBANDS_VAR_4d(:,:,:,itim_sub+1)
 
         ! reset itim_sub
         itim_sub=1
@@ -452,15 +450,14 @@ MODULE FUSE_RMSE_MODULE
 
     ! deallocate parameter derivative vectors
     do iBands=1,n_bands
-     deallocate(fuseStruct%sbands(iBands)%dx%dSWE_dParam,  &
-                fuseStruct%sbands(iBands)%dx%dEffP_dParam, stat=ierr)
+     deallocate(fuseStruct%sbands(iBands)%var%dSWE_dParam, stat=ierr)
      if(ierr/=0) STOP ' problem deallocating space for the parameter derivatives'
     end do
 
     ! deallocate vectors
     DEALLOCATE(W_FLUX_3d); IF (IERR.NE.0) STOP ' problem deallocating W_FLUX_3d in fuse_rmse '
     DEALLOCATE(STATE0,STATE1,STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating state vectors in fuse_rmse'
-    deallocate(fuseStruct%df_dS, stat=ierr); if(ierr/=0) STOP ' problem deallocating space for the flux derivative vector'
+    deallocate(fuseStruct%df_dS, fuseStruct%df_dPar, fuseStruct%dL_dPar, stat=ierr); if(ierr/=0) STOP ' problem deallocating space for the flux derivative vectors'
     deallocate(fuseStruct%sbands, stat=ierr); if(ierr/=0) STOP ' problem deallocating space for the elevation bands'
 
   END SUBROUTINE FUSE_RMSE

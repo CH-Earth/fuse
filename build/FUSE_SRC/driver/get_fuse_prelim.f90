@@ -127,6 +127,7 @@ contains
   endif
  
   ! get elevation band info, in particular N_BANDS
+  ! NOTE: allocates space for the elevation band structures
   CALL GET_MBANDS_INFO(ELEV_BANDS_NC,err,cmessage) ! read band data from NetCDF file
   if (err/=0)then; message=trim(message)//trim(cmessage); err=20; return; endif
   
@@ -166,7 +167,7 @@ contains
 
   CALL DEF_PARAMS(NUMPSET)                ! define model parameters (initial CREATE)
   CALL DEF_SSTATS()                            ! define summary statistics (REDEF)
-  CALL DEF_OUTPUT(nSpat1,nSpat2,N_BANDS,numtim_sim)    ! define model output time series (REDEF)
+  CALL DEF_OUTPUT(nSpat1,nSpat2,N_BANDS,NUMPAR,numtim_sim)    ! define model output time series (REDEF)
  
   ! get parameter bounds and random numbers
   ALLOCATE(APAR(NUMPAR),BL(NUMPAR),BU(NUMPAR))
@@ -179,6 +180,9 @@ contains
   END DO
 
   ! ----- allocate space for time series, grids, and states -------------------------------
+
+
+
 
   ! allocate space for the basin/grid-average time series
   allocate(aForce(numtim_sub),aRoute(numtim_sub),stat=err)

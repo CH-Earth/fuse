@@ -14,7 +14,7 @@ MODULE PUT_OUTPUT_MODULE
   ! Creator:
   ! --------
   ! Nans Addor, based on Martyn Clark's 2007 PUT_OUTPUT
-  ! Modified by Marytn Clark to use the elevation band dimension, 12/2025
+  ! Modified by Marytn Clark to use the elevation band dimension and add parameter derivatives, 12/2025
   ! ---------------------------------------------------------------------------------------
   ! Purpose:
   ! --------
@@ -29,6 +29,7 @@ MODULE PUT_OUTPUT_MODULE
   USE metaoutput, only: NOUTVAR                   ! number of output variables
   USE metaoutput, only: VNAME, LNAME, VUNIT       ! metadata for all model variables
   USE metaoutput, only: isBand                    ! logical flag to define vars with elevation dimension
+  USE multiparam, only: NUMPAR                    ! variables for parameters
   USE multibands, only: MBANDS_VAR_4d, N_BANDS    ! variables for elevation bands
   USE multiforce, only: timDat,time_steps         ! time data
   USE multiforce, only: nspat1,nspat2,startSpat2  ! spatial dimensions
@@ -47,17 +48,21 @@ MODULE PUT_OUTPUT_MODULE
   ! internal
   LOGICAL(LGT)                                :: WRITE_VAR      ! used to denote if the variable is written
   INTEGER(I4B)                                :: IERR           ! error code
-  integer(i4b), dimension(3)                  :: start3         ! start indices: exclude elevation bands
-  integer(i4b), dimension(3)                  :: count3         ! count indices: exclude elevation bands
-  integer(i4b), dimension(4)                  :: start4         ! start indices: include elevation bands
-  integer(i4b), dimension(4)                  :: count4         ! count indices: include elevation bands
+  integer(i4b), dimension(3)                  :: start3         ! start indices: exclude elevation bands and parameters
+  integer(i4b), dimension(3)                  :: count3         ! count indices: exclude elevation bands and parameters
+  integer(i4b), dimension(4)                  :: start4_band    ! start indices: include elevation bands
+  integer(i4b), dimension(4)                  :: count4_band    ! count indices: include elevation bands
+  integer(i4b), dimension(4)                  :: start4_param   ! start indices: include parameters
+  integer(i4b), dimension(4)                  :: count4_param   ! count indices: include parameters
   INTEGER(I4B)                                :: IVAR           ! loop through variables
   REAL(SP)                                    :: XVAR           ! desired variable (SP NOT NECESSARILY SP)
   REAL(MSP)                                   :: AVAR           ! desired variable (SINGLE PRECISION)
   REAL(SP),  DIMENSION(nspat1,nspat2,numtim)  :: XVAR_3d        ! desired 3-d variable (SINGLE PRECISION)
   REAL(MSP), DIMENSION(nspat1,nspat2,numtim)  :: AVAR_3d        ! desired 3-d variable (SINGLE PRECISION)
-  REAL(SP),  DIMENSION(nspat1,nspat2,n_bands,numtim)  :: XVAR_4d        ! desired 4-d variable (SINGLE PRECISION)
-  REAL(MSP), DIMENSION(nspat1,nspat2,n_bands,numtim)  :: AVAR_4d        ! desired 4-d variable (SINGLE PRECISION)
+  REAL(SP),  DIMENSION(nspat1,nspat2,n_bands,numtim)  :: XVAR_4d_band        ! desired 4-d variable (SINGLE PRECISION)
+  REAL(MSP), DIMENSION(nspat1,nspat2,n_bands,numtim)  :: AVAR_4d_band        ! desired 4-d variable (SINGLE PRECISION)
+  REAL(SP),  DIMENSION(nspat1,nspat2,NUMPAR,numtim)   :: XVAR_4d_param       ! desired 4-d variable (SINGLE PRECISION)
+  REAL(MSP), DIMENSION(nspat1,nspat2,NUMPAR,numtim)   :: AVAR_4d_param       ! desired 4-d variable (SINGLE PRECISION)
   REAL(MSP), DIMENSION(numtim)                :: tDat           ! time data
   REAL(SP),  DIMENSION(numtim)                :: time_steps_sub ! time data
   INTEGER(I4B)                                :: IVAR_ID        ! variable ID
@@ -70,9 +75,13 @@ MODULE PUT_OUTPUT_MODULE
   start3 = (/1,1,istart_sim/)
   count3 = (/nspat1,nspat2,numtim/)
   
-  ! define dimension list (exclude elevation bands)
-  start4 = (/1,1,1,istart_sim/)
-  count4 = (/nspat1,nspat2,n_bands,numtim/)
+  ! define dimension list (include elevation bands)
+  start4_band  = (/1,1,1,istart_sim/)
+  count4_band  = (/nspat1,nspat2,n_bands,numtim/)
+
+  ! define dimension list (include parameter derivatives)
+  start4_param = (/1,1,1,istart_sim/)
+  count4_param = (/nspat1,nspat2,n_bands,numtim/)
 
   ! open file
   IERR = NF_OPEN(TRIM(FNAME_NETCDF_RUNS),NF_WRITE,ncid_out)
@@ -106,18 +115,22 @@ MODULE PUT_OUTPUT_MODULE
 
       ! extract variable from 4-D elevation band matrix
       select case (trim(VNAME(IVAR)))
-       case ('swe_z'    ); XVAR_4d = MBANDS_VAR_4d(:,:,:,1:numtim)%SWE
-       case ('snwacml_z'); XVAR_4d = MBANDS_VAR_4d(:,:,:,1:numtim)%SNOWACCMLTN
-       case ('snwmelt_z'); XVAR_4d = MBANDS_VAR_4d(:,:,:,1:numtim)%SNOWMELT
+       case ('swe_z'    ); AVAR_4d_band = MBANDS_VAR_4d(:,:,:,1:numtim)%SWE
+       case ('snwacml_z'); AVAR_4d_band = MBANDS_VAR_4d(:,:,:,1:numtim)%SNOWACCMLTN
+       case ('snwmelt_z'); AVAR_4d_band = MBANDS_VAR_4d(:,:,:,1:numtim)%SNOWMELT
        case default; stop "put_output.f90: cannot identify elevation band variable: "//trim(VNAME(IVAR))
       end select
-      aVar_4d = xVar_4d ! use MSP to write single precision
 
-      ! write 4-d matrix
-      IERR = NF_PUT_VARA_REAL(ncid_out, IVAR_ID, START4, COUNT4, AVAR_4d)
+      ! write 4-d matrix for elevation bands
+      IERR = NF_PUT_VARA_REAL(ncid_out, IVAR_ID, START4_band, COUNT4_band, AVAR_4d_band)
       call HANDLE_ERR(IERR)
 
     endif  ! (switch between 3-d and 4-d variables)
+
+    !      ! write the parameter sensitivity for each flux: extra variable
+    !      if(isFlux(iVar))then
+    !        AVAR_4d_param = fuseStruct%df_dPar(:)
+    !      endif
 
   END DO  ! (ivar)
 

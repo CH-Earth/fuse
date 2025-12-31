@@ -71,8 +71,8 @@ MODULE PUT_PARAMS_MODULE
   
       ! extract vector
       select case (trim(PNAME(IVAR)))
-        case ('AF')   ; xVec(1:n_bands) = [ (MBANDS(ib)%AF,    ib=1,n_bands) ]
-        case ('Z_MID'); xVec(1:n_bands) = [ (MBANDS(ib)%Z_MID, ib=1,n_bands) ]
+        case ('AF')   ; xVec(1:n_bands) = [ (MBANDS(ib)%info%AF,    ib=1,n_bands) ]
+        case ('Z_MID'); xVec(1:n_bands) = [ (MBANDS(ib)%info%Z_MID, ib=1,n_bands) ]
         case default; stop "put_params.f90: cannot identify elevation band variable"
       end select
       aVec = xVec ! use MSP to write single precision

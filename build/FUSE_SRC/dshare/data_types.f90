@@ -14,9 +14,10 @@ module data_types
    character(len=:), allocatable :: sets_file        ! for idx,opt
    integer(i4b)                  :: indx = -1        ! for idx
    character(len=:), allocatable :: restart_freq     ! y/m/d/e/never
-   character(len=:), allocatable :: progress_freq    ! m/d/h/never
    logical(lgt)                  :: show_version = .false.
    logical(lgt)                  :: show_help    = .false.
+   character(len=:), allocatable :: param_name(:)    ! list of parameter names
+   real(sp), allocatable         :: param_value(:)   ! list of parameter values
  end type cli_options
 
  ! --------------------------------------------------------------------------------------
@@ -289,18 +290,6 @@ module data_types
  ! elevation bands
  ! --------------------------------------------------------------------------------------
 
- TYPE BANDS ! for catchment scale modeling
-  INTEGER(I4B)                         :: NUM             ! band number (-)
-  REAL(SP)                             :: Z_MID           ! band mid-point elevation (m)
-  REAL(SP)                             :: AF              ! fraction of basin area in band (-)
-  REAL(SP)                             :: SWE             ! band snowpack water equivalent (mm)
-  REAL(SP)                             :: SNOWACCMLTN     ! new snow accumulation in band (mm day-1)
-  REAL(SP)                             :: SNOWMELT        ! snowmelt in band (mm day-1)
-  REAL(SP)                             :: DSWE_DT         ! rate of change of band SWE (mm day-1)
- ENDTYPE BANDS
-
- ! for distributed modeling MBANDS is split between time-independent and time-dependent charactertistics
-
  TYPE BANDS_INFO ! invariant characteristics
   REAL(SP)                             :: Z_MID         ! band mid-point elevation (m)
   REAL(SP)                             :: AF            ! fraction of basin area in band (-)
@@ -311,17 +300,13 @@ module data_types
   REAL(SP)                             :: SNOWACCMLTN   ! new snow accumulation in band (mm day-1)
   REAL(SP)                             :: SNOWMELT      ! snowmelt in band (mm day-1)
   REAL(SP)                             :: DSWE_DT       ! rate of change of band SWE (mm day-1)
+  real(sp),  allocatable               :: dSWE_dParam(:)  ! parameter derivative vector
  ENDTYPE BANDS_VAR
 
- type bands_dx ! derivatives
-   real(sp),  allocatable              :: dSWE_dParam(:)  ! parameter derivative vector
-   real(sp),  allocatable              :: dEffP_dParam(:) ! parameter derivative vector
- endtype bands_dx
-
- type ebands
-   type(bands)                         :: var           ! time-dependent variables
-   type(bands_dx)                      :: dx            ! derivatives
- endtype
+ TYPE BANDS
+  type(bands_info)                     :: info          ! information variables (elevation, area fraction)
+  type(bands_var)                      :: var           ! model variables (SWE, snowfall, snowmelt, ...)
+ ENDTYPE BANDS
 
  ! --------------------------------------------------------------------------------------
  ! model statistics structure
@@ -360,12 +345,14 @@ module data_types
  type parent
   type(tdata)                         :: time           ! time data
   type(fdata)                         :: force          ! model forcing data
-  type(ebands), allocatable           :: sbands(:)      ! info/variables for elevation bands (snow model)
+  type(bands) , allocatable           :: sbands(:)      ! info/variables for elevation bands (snow model)
   type(statev)                        :: state0         ! state variables (start of step)
   type(statev)                        :: state1         ! state variables (end of step)
   type(statev)                        :: dx_dt          ! time derivative in state variables
   type(fluxes)                        :: flux           ! fluxes
   type(fluxes), allocatable           :: df_dS(:)       ! derivative in fluxes w.r.t. states
+  type(fluxes), allocatable           :: df_dPar(:)     ! derivative in fluxes w.r.t. parameters
+  real(sp),     allocatable           :: dL_dPar(:)     ! derivative in loss function w.r.t. parameters
   type(runoff)                        :: route          ! hillslope routing
   type(par_id)                        :: param_name     ! parameter names
   type(parinfo)                       :: param_meta     ! metadata on model parameters
@@ -374,5 +361,237 @@ module data_types
   type(summary)                       :: sim_stats      ! simulation statistics
   real(sp)                            :: z_forcing      ! elevation of forcing data (m)
  end type parent
+
+  ! --------------------------------------------------------------------------------------
+  ! Domain metadata and gridded/time-windowed data
+  ! --------------------------------------------------------------------------------------
+
+  type :: mpi_info
+    logical(lgt) :: enabled = .false.
+    integer(i4b) :: rank    = 0
+    integer(i4b) :: nproc   = 1
+  end type mpi_info
+
+  ! -------------------------------------------------------------------------------------
+  
+  type :: space_info
+    ! global dimensions (full forcing file)
+    integer(i4b) :: nx_global = 1
+    integer(i4b) :: ny_global = 1
+
+    ! local dimensions (after MPI split)
+    integer(i4b) :: nx_local = 1
+    integer(i4b) :: ny_local = 1
+
+    ! decomposition along y dimension
+    integer(i4b) :: y_start_global = 1
+    integer(i4b) :: y_end_global   = 1
+
+    ! mode flag
+    logical(lgt) :: grid_flag = .false.
+  end type space_info
+
+  ! -------------------------------------------------------------------------------------
+  
+  type :: time_info
+    ! forcing axis (global)
+    integer(i4b) :: nt_global = 0
+   
+    ! simulation & evaluation indices into forcing time axis
+    integer(i4b) :: sim_beg  = 1
+    integer(i4b) :: sim_end  = 1
+    integer(i4b) :: eval_beg = 1
+    integer(i4b) :: eval_end = 1
+   
+    ! derived lengths
+    integer(i4b) :: nt_sim   = 0
+   
+    ! subperiod / windowing
+    logical(lgt) :: use_subperiods = .false.
+    integer(i4b) :: nt_window      = 0       ! (= numtim_sub)
+    integer(i4b) :: nt_window_cur  = 0       ! runtime: current window length
+   
+    ! bookkeeping for time axis
+    character(len=:), allocatable :: units
+    real(sp)       :: jdate_ref = 0._sp
+    real(sp), allocatable :: jdate(:)    ! julian day for each forcing record
+  end type time_info
+
+  ! -------------------------------------------------------------------------------------
+
+  type :: snow_info
+    integer(i4b) :: n_bands = 0
+  end type snow_info
+
+  ! -------------------------------------------------------------------------------------
+  
+  type :: file_info
+
+    ! directories
+    character(len=512) :: setngs_path = ""
+    character(len=512) :: input_path  = ""
+    character(len=512) :: output_path = ""
+   
+    ! settings filenames (relative or absolute)
+    character(len=512) :: forcinginfo  = ""
+    character(len=512) :: constraints  = ""
+    character(len=512) :: mod_numerix   = ""
+    character(len=512) :: m_decisions   = ""
+   
+    ! domain-derived input suffixes
+    character(len=512) :: suffix_forcing    = ""
+    character(len=512) :: suffix_elev_bands = ""
+   
+    ! actual input filenames for this domain (derived once dom_id known)
+    character(len=512) :: forcing_file   = ""   ! dom_id//suffix_forcing
+    character(len=512) :: elevbands_file = ""   ! dom_id//suffix_elev_bands
+   
+    ! output base name + concrete outputs
+    character(len=512) :: fname_tempry     = ""
+    character(len=512) :: fname_netcdf_runs = ""
+    character(len=512) :: fname_netcdf_para = ""
+
+  end type file_info
+
+  ! -------------------------------------------------------------------------------------
+
+  type :: run_config
+
+   ! provenance
+   character(len=512) :: file_manager_file = ""
+
+   ! CLI options
+   type(cli_options)  :: cli_opts
+
+   ! model selection
+   character(len=64)  :: fmodel_id = ""
+
+   ! model information
+   integer(i4b)       :: nState = -9999
+   integer(i4b)       :: nParam = -9999
+   
+   ! list of model parameters
+   type(par_id), allocatable  :: listParam(:)
+
+   ! run flags
+   logical(lgt) :: q_only = .false.
+
+   ! requested time windows (strings as read from filemanager)
+   character(len=20) :: date_start_sim  = ""
+   character(len=20) :: date_end_sim    = ""
+   character(len=20) :: date_start_eval = ""
+   character(len=20) :: date_end_eval   = ""
+   character(len=20) :: numtim_sub_str  = ""
+
+   ! parsed / derived values (optional convenience)
+   integer(i4b) :: numtim_sub = -9999      ! parsed from numtim_sub_str
+
+   ! output dimension for number of parameter sets
+   integer(i4b) :: nSets
+
+   ! SCE settings (store as numeric types)
+   integer(i4b) :: maxn  = -9999
+   integer(i4b) :: kstop = -9999
+   real(sp)     :: pcento = -9999._sp
+
+   ! store raw strings too if you care about provenance
+   character(len=20) :: maxn_str  = ""
+   character(len=20) :: kstop_str = ""
+   character(len=20) :: pcento_str = ""
+
+  end type run_config
+
+  ! -------------------------------------------------------------------------------------
+  ! -------------------------------------------------------------------------------------
+  
+  type :: domain_info
+    type(mpi_info)   :: mpi
+    type(space_info) :: space
+    type(time_info)  :: time
+    type(snow_info)  :: snow
+    type(file_info)  :: files
+    type(run_config) :: config
+  end type domain_info
+
+  ! -------------------------------------------------------------------------------------
+  ! ------------------------------------------------------------------------------------- 
+  
+  type :: coord_data
+    logical(lgt) :: is_curvilinear = .false.   ! true if lat/lon are 2D
+    logical(lgt) :: is_point_list  = .false.   ! true if nx=1 and lat/lon are 1D over ny
+   
+    ! 2D rectilinear OR point-list
+    real(sp), allocatable :: lon_1d(:)   ! nx or ny depending on layout
+    real(sp), allocatable :: lat_1d(:)
+   
+    ! 2D curvilinear
+    real(sp), allocatable :: lon_2d(:,:) ! (nx_local, ny_local)
+    real(sp), allocatable :: lat_2d(:,:)
+   
+    ! optional IDs (int is usually safest)
+    integer(i4b), allocatable :: cell_id(:,:)  ! always stored locally as (nx_local, ny_local)
+  end type coord_data
+
+  ! -------------------------------------------------------------------------------------
+  
+  type :: domain_data
+
+    ! coordinate information
+    type(coord_data)             :: coords
+
+    ! 2D ancillary forcing (optional, for PET etc.)
+    type(ADATA), allocatable     :: ancil(:,:)         ! (nx_local, ny_local)
+
+    ! 3D forcing window (nx_local, ny_local, numtim_sub)
+    type(FDATA), allocatable     :: force(:,:,:)       ! force_3d
+
+    ! 3D state window (nx_local, ny_local, numtim_sub+1)
+    type(STATEV), allocatable    :: state(:,:,:)       ! state_3d
+
+    ! 3D flux window (nx_local, ny_local, numtim_sub)
+    type(FLUXES), allocatable    :: flux(:,:,:)        ! flux_3d
+
+    ! 3D routing window (nx_local, ny_local, numtim_sub)
+    type(RUNOFF), allocatable    :: route(:,:,:)       ! route_3d
+
+    ! 4D snow-band state window (nx_local, ny_local, n_bands, numtim_sub+1)
+    type(BANDS_VAR), allocatable :: bands(:,:,:,:)      ! bands_var_4d
+
+    ! 3D observed discharge / validity (optional)
+    type(VDATA), allocatable     :: valid(:,:,:)       ! (nx_local, ny_local, numtim_sub)
+
+    ! basin-average time series for output convenience
+    type(FDATA), allocatable     :: aForce(:)          ! (numtim_sub)
+    type(RUNOFF), allocatable    :: aRoute(:)          ! (numtim_sub)
+
+  end type domain_data
+
+  ! -------------------------------------------------------------------------------------
+  
+  type :: fuse_work
+
+    ! state vectors used for ODE integration
+    real(sp), allocatable :: state0(:)    ! (nState)
+    real(sp), allocatable :: state1(:)    ! (nState)
+   
+    ! optional scratch for Jacobian tests / ODE checks (if you still use them)
+    real(sp), allocatable :: dSdt(:)      ! (nState)
+    real(sp), allocatable :: J(:,:)       ! (nState,nState)
+   
+    ! differentiable parent structure (single-cell scratch)
+    type(parent) :: fuseStruct
+   
+    ! flags so we know if it's initialized
+    logical(lgt) :: is_initialized = .false.
+
+  end type fuse_work
+
+  ! -------------------------------------------------------------------------------------
+  
+  type :: domain_type
+    type(domain_info) :: info
+    type(domain_data) :: data
+    type(fuse_work)   :: work
+  end type domain_type
 
 end module data_types

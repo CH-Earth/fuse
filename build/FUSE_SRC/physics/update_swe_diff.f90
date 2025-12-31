@@ -2,6 +2,7 @@ module update_swe_DIFF_MODULE
 
   USE model_defn                                        ! model definition structure
   USE model_defnames                                    ! integer model definitions
+  USE globaldata, only : NA_VALUE_SP                    ! missing vale
 
   implicit none
 
@@ -109,8 +110,7 @@ contains
    MFORCE => fuseStruct%force        , &  ! forcing data
    Z_FORC => fuseStruct%z_forcing    , &  ! elevation of the forcing data
    M_FLUX => fuseStruct%flux         , &  ! fluxes
-   MBANDS => fuseStruct%sbands       , &  ! elevation band variables: MBANDS(i)%var%x
-   DERIVS => fuseStruct%sbands       , &  ! parameter derivatives: DERIVS(i)%dx%x
+   MBANDS => fuseStruct%sbands       , &  ! elevation band variables: MBANDS(i)%var, MBANDS(i)info
    MPARAM => fuseStruct%param_adjust , &  ! adjustable model parameters
    DPARAM => fuseStruct%param_derive   &  ! derived model parameters
    ) ! (associate)
@@ -188,7 +188,7 @@ contains
   M_FLUX%EFF_PPT = 0._sp
 
   ! check band rea fractions sum to 1
-  if (abs(sum(MBANDS(:)%var%AF) - 1._sp) > 1.e-6_sp) stop "Band area fractions do not sum to 1"
+  if (abs(sum(MBANDS(:)%info%AF) - 1._sp) > 1.e-6_sp) stop "Band area fractions do not sum to 1"
 
   ! loop through model bands
   DO ISNW=1,N_BANDS
@@ -204,12 +204,12 @@ contains
   endif
 
    ! copy the stored sensitivity of SWE from the previous timestep to propagate it forward
-   if (comp_dparam) dSWE(:) = DERIVS(ISNW)%dx%dSWE_dparam(:)
+   if (comp_dparam) dSWE(:) = MBANDS(ISNW)%var%dSWE_dparam(:)
 
    ! --- use the Orographic Precipitation Gradient (OPG) to adjust precip for elevation ---
 
    ! dimensionless OPG
-   DZ       = MBANDS(ISNW)%var%Z_MID - Z_FORC
+   DZ       = MBANDS(ISNW)%info%Z_MID - Z_FORC
    xOPG     = DZ * MPARAM%OPG / 1000._sp
    
    ! hard [0,1] gate by DZ sign (no smoothing): preserves original code from Henn et al.
@@ -300,7 +300,7 @@ contains
      dpotMelt(:) = dMF(:)*posTemp + MF*dposTemp(:)
      
      ! melt cap
-     dsnowmelt(:) = merge(dpotMelt(:), dSWE(:)/DT, potMelt < meltcap)
+     dsnowmelt(:) = merge(dpotMelt(:), dSWE(:)/DT, potMelt <= meltcap)
 
    endif  ! computing derivatives
 
@@ -312,21 +312,25 @@ contains
    if(comp_dparam)then
      g_u = merge(1._sp, 0._sp, u_swe > swe_eps) ! sensitivities zero in snow free periods
      dSWE_new(:) = g_u * ( dSWE(:) + DT*(dsnow(:) - dsnowmelt(:)) )
-     DERIVS(ISNW)%dx%dSWE_dparam(:) = dSWE_new(:)
+     MBANDS(ISNW)%var%dSWE_dparam(:) = dSWE_new(:)
    endif
 
    ! ----- calculate effective precip (rain + melt)  ---------------------------------------
 
-   M_FLUX%EFF_PPT = M_FLUX%EFF_PPT + MBANDS(ISNW)%var%AF * (rain + snowmelt)
+   M_FLUX%EFF_PPT = M_FLUX%EFF_PPT + MBANDS(ISNW)%info%AF * (rain + snowmelt)
 
    if(comp_dparam)then
-     DERIVS(ISNW)%dx%dEffP_dParam(1:NP) = DERIVS(ISNW)%dx%dEffP_dParam(1:NP) + & 
-                                          MBANDS(ISNW)%var%AF * (drain(:) + dsnowmelt(:))
+     fuseStruct%df_dPar(1:NP)%EFF_PPT = fuseStruct%df_dPar(1:NP)%EFF_PPT + & 
+                                        MBANDS(ISNW)%info%AF * (drain(:) + dsnowmelt(:))
    endif
 
   END DO  ! looping through elevation bands  
- 
+
   end associate
+  
+  ! TEMPORARY: save the derivative as a "fake" loss function
+  fuseStruct%dL_dPar(:)    = NA_VALUE_SP 
+  fuseStruct%dL_dPar(1:NP) = fuseStruct%df_dPar(1:NP)%EFF_PPT
 
   END SUBROUTINE UPDATE_SWE_DIFF
 

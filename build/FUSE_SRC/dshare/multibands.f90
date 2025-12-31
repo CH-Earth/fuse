@@ -4,12 +4,12 @@ MODULE multibands
  USE nrtype
  USE data_types, only: BANDS, BANDS_INFO, BANDS_VAR
  ! --------------------------------------------------------------------------------------
- TYPE(BANDS),DIMENSION(:),ALLOCATABLE  :: MBANDS          ! basin band information
- type(BANDS_INFO),dimension(:,:,:),ALLOCATABLE :: MBANDS_INFO_3d    ! basin band information in space
- type(BANDS_VAR),dimension(:,:,:,:),ALLOCATABLE :: MBANDS_VAR_4d    ! basin band information in space plus time
- INTEGER(I4B)                          :: N_BANDS=0       ! number of bands, initialize to zero
- REAL(SP)                              :: Z_FORCING       ! elevation of forcing data (m)
- REAL(SP),DIMENSION(:,:),ALLOCATABLE   :: Z_FORCING_grid  ! elevation of forcing data (m) for the 2D domain
- LOGICAL(LGT),DIMENSION(:,:),ALLOCATABLE   :: elev_mask   ! mask domain - TRUE means the cell must be masked, i.e. not run
+ TYPE(BANDS)      , DIMENSION(:)       , allocatable   :: MBANDS          ! basin band information
+ type(BANDS_INFO) , dimension(:,:,:)   , allocatable   :: MBANDS_INFO_3d  ! basin band information in space
+ type(BANDS_VAR)  , dimension(:,:,:,:) , allocatable   :: MBANDS_VAR_4d   ! basin band information in space plus time
+ LOGICAL(LGT)     , DIMENSION(:,:)     , allocatable   :: elev_mask       ! mask domain - TRUE means the cell must be masked, i.e. not run
+ REAL(SP)         , DIMENSION(:,:)     , allocatable   :: Z_FORCING_grid  ! elevation of forcing data (m) for the 2D domain
+ INTEGER(I4B)                                          :: N_BANDS=0       ! number of bands, initialize to zero
+ REAL(SP)                                              :: Z_FORCING       ! elevation of forcing data (m)
  ! --------------------------------------------------------------------------------------
 END MODULE multibands

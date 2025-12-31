@@ -20,6 +20,8 @@ contains
   integer(i4b)                        :: i             ! index of command line argument
   character(len=:)    , allocatable   :: a, v          ! command line arguments
   character(len=:)    , allocatable   :: cIndex        ! character index
+  character(len=:)    , allocatable   :: kv, pname, pval_str  ! parameter strings
+  real(sp)                            :: pval          ! parameter value
   integer(i4b)                        :: nArg          ! number of command line arguments
   character(len=:)    , allocatable   :: cmessage
   ! initialize error control
@@ -35,8 +37,8 @@ contains
   !    -s/--sets      <file>     (required for idx,opt)
   !    -i/--index     <int>      (required for idx)
   !    -r/--restart   <y|m|d|e|never>   (optional)
-  !    -p/--progress  <m|d|h|never>     (optional)
   !    -t/--tag       <string>          (optional)
+  !    -p/--param     <string>          (optional)
   !    -v/--version              (prints version info and exits)
   !    -h/--help                 (prints help and exits)
   ! -----------------------------------------------------------------------------------------
@@ -78,6 +80,10 @@ contains
       opts%domain_id = trim(v)
       i = i + 2
 
+    case ('-p', '--param')
+      call require_next(i, narg, a, kv, err, cmessage)
+      i = i + 2
+
     case ('-s','--sets','--param-sets')
       call require_next(i, narg, a, v, err, cmessage)
       opts%sets_file = trim(v)
@@ -90,11 +96,6 @@ contains
     case ('-r','--restart')
       call require_next(i, narg, a, v, err, cmessage)
       opts%restart_freq = to_lower(trim(v))
-      i = i + 2
-
-    case ('-p','--progress')
-      call require_next(i, narg, a, v, err, cmessage)
-      opts%progress_freq = to_lower(trim(v))
       i = i + 2
 
     case default
@@ -112,6 +113,27 @@ contains
      message=trim(message)//trim(cmessage)
      err=20; return
     endif
+
+    ! process parameters -- needs to be in the do loop since multiple parameters
+    if(allocated(kv))then
+
+      ! split name/value based on the equal sign
+      call split_param_kv(trim(kv), pname, pval_str, err, cmessage)
+      if(err /= 0)then; message=trim(message)//trim(cmessage); err=20; return; endif
+
+      ! convert characters to real values
+      call parse_real_sp(pval_str, pval, err, cmessage)
+      if (err /= 0) then
+        message=trim(message)//"invalid --param value for "//trim(pname)//": "//trim(cmessage)
+        err=20; return
+      end if
+
+      ! add to structure in opts
+      call push_param(opts%param_name, opts%param_value, pname, pval)
+      print*, opts%param_name
+      print*, opts%param_value
+    
+    endif  ! if processing parameters
 
   end do  ! looping through arguments
 
@@ -172,11 +194,6 @@ contains
       err = 1; message = trim(message)//"invalid --restart: "//trim(opts%restart_freq)//" (expect y|m|d|e|never)"; return
     end if
   end if
-  if (allocated(opts%progress_freq)) then
-    if (.not. is_valid_progress(opts%progress_freq)) then
-      err = 1; message = trim(message)//"invalid --progress: "//trim(opts%progress_freq)//" (expect m|d|h|never)"; return
-    end if
-  end if
 
   end subroutine parse_command_args
 
@@ -226,7 +243,6 @@ contains
     
     print "(A)", "Optional:"
     print "(A)", "  -r, --restart      <freq>   y|m|d|e|never"
-    print "(A)", "  -p, --progress     <freq>   m|d|h|never"
     print "(A)", "  -t, --tag          <string> Add tag to output filename"
     print "(A)", "  -v, --version               Print version info and exit"
     print "(A)", "  -h, --help                  Print this help and exit"
@@ -237,8 +253,8 @@ contains
     print "(A)", "  fuse.exe -d camels-12345 -c ./control/FUSE_control.txt -m def"
     print "(A)", ""
     
-    print "(A)", "  Default run with restart and progress output:"
-    print "(A)", "  fuse.exe -d camels-12345 -c ./control/FUSE_control.txt -m def -r d -p h"
+    print "(A)", "  Default run and write restart file every day:"
+    print "(A)", "  fuse.exe -d camels-12345 -c ./control/FUSE_control.txt -m def -r d"
     print "(A)", ""
     
     print "(A)", "  Run using parameter set index 17 from a sets file:"
@@ -287,6 +303,45 @@ contains
     call get_arg(i+1, val)
   end subroutine require_next
 
+  subroutine split_param_kv(kv, name, val, err, message)
+    character(len=*), intent(in) :: kv
+    character(len=:), allocatable, intent(out) :: name, val
+    integer(i4b), intent(out) :: err
+    character(len=:), allocatable, intent(out) :: message
+    integer(i4b) :: p
+
+    err = 0; message = ""
+    p = index(kv, '=')
+    if (p <= 1 .or. p >= len_trim(kv)) then
+      err = 1
+      message = "expected NAME=VALUE after --param, got: "//trim(kv)
+      return
+    end if
+
+    name = adjustl(kv(1:p-1))
+    val  = adjustl(kv(p+1:))
+
+    if (len_trim(name) == 0 .or. len_trim(val) == 0) then
+      err = 1
+      message = "expected NAME=VALUE after --param, got: "//trim(kv)
+      return
+    end if
+  end subroutine split_param_kv
+
+  subroutine parse_real_sp(s, x, err, message)
+    character(len=*), intent(in) :: s
+    real(sp), intent(out) :: x
+    integer, intent(out) :: err
+    character(len=:), allocatable, intent(out) :: message
+    integer(i4b) :: ios
+    err = 0; message = ""
+    read(s, *, iostat=ios) x
+    if (ios /= 0) then
+      err = 1
+      message = "invalid real: "//trim(s)
+    end if
+  end subroutine parse_real_sp
+
   subroutine parse_int(s, x, err, message)
     character(len=*), intent(in) :: s
     integer, intent(out) :: x
@@ -315,6 +370,36 @@ contains
     end do
   end function to_lower
 
+  subroutine push_param(pnames, pvals, name, val)
+    use nrtype
+    implicit none
+    character(len=:), allocatable, intent(inout) :: pnames(:)
+    real(sp), allocatable, intent(inout)         :: pvals(:)
+    character(len=*), intent(in)                 :: name
+    real(sp), intent(in)                         :: val
+   
+    character(len=:), allocatable :: new_names(:)
+    real(sp), allocatable         :: new_vals(:)
+    integer :: n
+   
+    n = 0
+    if (allocated(pvals)) n = size(pvals)
+   
+    allocate(character(len=len_trim(name)) :: new_names(n+1))
+    allocate(new_vals(n+1))
+   
+    if (n > 0) then
+      new_names(1:n) = pnames
+      new_vals(1:n)  = pvals
+    end if
+   
+    new_names(n+1) = trim(name)
+    new_vals(n+1)  = val
+   
+    call move_alloc(new_names, pnames)
+    call move_alloc(new_vals,  pvals)
+  end subroutine push_param
+
   pure logical function is_valid_mode(m)
     character(len=*), intent(in) :: m
     is_valid_mode = (trim(m) == 'def' .or. trim(m) == 'idx' .or. trim(m) == 'opt' .or. trim(m) == 'sce')
@@ -324,11 +409,6 @@ contains
     character(len=*), intent(in) :: f
     is_valid_restart = (trim(f) == 'y' .or. trim(f) == 'm' .or. trim(f) == 'd' .or. trim(f) == 'e' .or. trim(f) == 'never')
   end function is_valid_restart
-
-  pure logical function is_valid_progress(f)
-    character(len=*), intent(in) :: f
-    is_valid_progress = (trim(f) == 'm' .or. trim(f) == 'd' .or. trim(f) == 'h' .or. trim(f) == 'never')
-  end function is_valid_progress
 
 end module parse_command_args_MODULE
 

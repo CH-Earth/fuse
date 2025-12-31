@@ -109,6 +109,7 @@ contains
  if(ierr/=0)then; message=trim(message)//trim(cmessage); return; endif
  ! close the file unit
  close(iunit)
+ 
  ! ---------------------------------------------------------------------------------------
  ! initialize the check vector
  lCheck(:)=.false.

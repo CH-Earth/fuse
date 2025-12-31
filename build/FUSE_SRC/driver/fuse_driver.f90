@@ -13,10 +13,12 @@ PROGRAM DISTRIBUTED_DRIVER
 ! ---------------------------------------------------------------------------------------
 ! data types
 USE nrtype                                                ! variable types, etc.
-USE data_types, only: cli_options                         ! command line interface options
+USE data_types, only: cli_options                         ! domain (includes "everything")
+USE data_types, only: domain_type                         ! command line interface options
 USE multistats, only: PCOUNT                              ! counter 
 
 ! data
+USE globaldata, only: isPrint
 USE globaldata, only: ncid_out
 USE multiparam, only: NUMPAR
 USE multiforce, only: NUMPSET
@@ -25,15 +27,22 @@ USE multiForce, only: AFORCE, gForce, gForce_3d, aValid
 USE multiState, only: gState, gState_3d
 USE multiRoute, only: aRoute, AROUTE_3d
 
-! modules
-USE netcdf                                                ! NetCDF library
-USE get_fuse_prelim_MODULE, only: get_fuse_prelim         ! FUSE model setup
-USE parse_command_args_MODULE, only: parse_command_args   ! parse command line arguments
+! model setup: external subroutines/functions
+USE netcdf                                                       ! NetCDF library
+USE parse_command_args_MODULE, only: parse_command_args          ! parse command line arguments
+USE setup_domain_module, only: setup_domain                      ! initialize the model domain
+USE setup_model_definition_module, only: setup_model_definition  ! setup the FUSE model configuration
+
+! model run: external subroutines/functions
 USE get_fparam_module, only: GET_PRE_PARAM, GET_SCE_PARAM ! read parameters from netcdf file
 USE sce_driver_MODULE, only: sce_driver                   ! SCE optimization
 
 ! model simulation modules
 USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+
+#ifdef __MPI__
+  use mpi
+#endif
 
 IMPLICIT NONE
 
@@ -56,24 +65,60 @@ REAL(SP)                               :: RMSE    ! sim-obs differences
 LOGICAL(LGT)                           :: OUTPUT_FLAG     ! .TRUE. = write time series output
 INTEGER(I4B)                           :: ONEMOD=1        ! just specify one model
 
-! ----- set initial counters ------------------------------------------------------------
+! global domaia type
+type(domain_type)                      :: domain          ! includes "everything"
 
-! Define output and parameter files
-ONEMOD=1                 ! one file per model (i.e., model dimension = 1)
-PCOUNT=0                 ! counter for parameter sets evaluated (shared in MODULE multistats)
+! ---------------------------------------------------------------------------------------
+! ----- model preliminaries (initialize) ------------------------------------------------
+! ---------------------------------------------------------------------------------------
+
+! ----- initialize MPI ------------------------------------------------------------------
+
+#ifdef __MPI__
+  domain%info%mpi%enabled = .true.
+  call MPI_Init(err); call MPI_check(err, "MPI_Init")
+  call MPI_Comm_rank(MPI_COMM_WORLD, domain%info%mpi%rank, err);  call MPI_check(err, "MPI_Comm_rank")
+  call MPI_Comm_size(MPI_COMM_WORLD, domain%info%mpi%nproc, err); call MPI_check(err, "MPI_Comm_size")
+#else
+  domain%info%mpi%enabled = .false.
+  domain%info%mpi%rank    = 0
+  domain%info%mpi%nproc   = 1
+#endif
+
+! suppress printing for higher ranks
+if(domain%info%mpi%rank > 0) isPrint=.false.
 
 ! ----- parse command line arguments ----------------------------------------------------
 
 call parse_command_args(cli_opts,err,message)
 if(err/=0) stop trim(message)
 
-! ----- get preliminary information for simulation --------------------------------------
+if(isPrint)then
+  print*, 'Control file = ', cli_opts%control_file
+  print*, 'Run mode     = ', cli_opts%runmode
+endif
 
-call get_fuse_prelim(cli_opts, APAR, BL, BU, err, message)
+! ----- initialize the model domain -----------------------------------------------------
+
+! read forcing metadata (space/time/coords), apply MPI decomposition, and allocate domain arrays
+call setup_domain(cli_opts, domain, err, message) 
 if(err/=0) stop trim(message)
 
-print*, 'Control file = ', cli_opts%control_file
-print*, 'Run mode     = ', cli_opts%runmode
+! ----- initialize model configurations -------------------------------------------------
+
+! choose model, load parameter metadata, derive parameters, and define NetCDF output files
+call setup_model_definition(cli_opts, domain, APAR, BL, BU, err, message)
+if(err/=0) stop trim(message)
+
+! ----- set initial counters ------------------------------------------------------------
+
+! Define output and parameter files
+ONEMOD=1                 ! one file per model (i.e., model dimension = 1)
+PCOUNT=0                 ! counter for parameter sets evaluated (shared in MODULE multistats)
+
+! ----- allocate data structures --------------------------------------------------------
+
+
 
 ! ---------------------------------------------------------------------------------------
 ! ----- run different FUSE modes --------------------------------------------------------
@@ -137,7 +182,34 @@ err = nf90_close(ncid_out)
 if(err/=0)then; message=trim(message)//' nf90_close failed: '//trim(nf90_strerror(err)); return; endif
 
 PRINT *, 'Done'
-
-
 STOP
+
+! ---------------------------------------------------------------------------------------
+! ---------------------------------------------------------------------------------------
+! ---------------------------------------------------------------------------------------
+
+contains
+
+! ----- MPI checker ---------------------------------------------------------------------
+
+subroutine mpi_check(ierr, callee)
+#ifdef __MPI__
+  use mpi
+#endif
+  implicit none
+  integer(i4b), intent(in) :: ierr
+  character(len=*), intent(in) :: callee
+#ifdef __MPI__
+  integer(i4b) :: slen, ierr2
+  character(len=256) :: errstr
+  if (ierr /= MPI_SUCCESS) then
+    call MPI_Error_string(ierr, errstr, slen, ierr2)
+    write(*,*) "MPI error at ", trim(callee), ": ", trim(errstr(1:slen))
+    call MPI_Abort(MPI_COMM_WORLD, ierr, ierr2)
+  end if
+#else
+  ! serial build: do nothing
+#endif
+end subroutine mpi_check
+
 END PROGRAM DISTRIBUTED_DRIVER
