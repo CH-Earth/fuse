@@ -7,7 +7,7 @@
 #========================================================================
 
 # Define core directory below which everything resides
-F_MASTER = ${HOME}/fuse/
+F_MASTER = ${HOME}/Documents/analysis/diffModel/FUSE/source/fuse/
 
 # Core directory that contains FUSE source code
 F_KORE_DIR = $(F_MASTER)build/FUSE_SRC/
@@ -22,14 +22,11 @@ EXE_PATH = $(F_MASTER)bin/
 # PART 1: Define the libraries, driver programs, and executables
 #========================================================================
 
-# Define the fortran compiler. You have a few options: i) set the FC
-# variable in your environment, ii) set it when you compile this
-# Make file (e.g. make FC=ifort), iii) or if don't define it, the compiler
-# specified below is used
-ifndef FC
-	#FC = ifort
-	FC = gfortran
-endif
+.DEFAULT_GOAL := all
+
+# Define the fortran compiler. 
+#FC = ifort
+FC = gfortran
 
 # Define the NetCDF and HDF5 libraries. Use the libraries associated with
 # the compiler you selected above. Note that these paths are machine-dependent
@@ -41,44 +38,77 @@ ifeq "$(FC)" "ifort"
 endif
 
 ifeq "$(FC)" "gfortran"
-	NCDF_LIB_PATH = /usr/lib/x86_64-linux-gnu#${NCDF_PATH}
-	HDF_LIB_PATH = /usr/lib/x86_64-linux-gnu/hdf5/serial#${HDF_PATH}
-	INCLUDE_PATH = /usr#${IN_PATH}
+	INC_NETCDF := $(shell nf-config --fflags)
+	LIB_NETCDF := $(shell nf-config --flibs) $(shell nc-config --libs)
 endif
 
-LIBRARIES = -L$(NCDF_LIB_PATH)/lib -lnetcdff -lnetcdf -L$(HDF_LIB_PATH)/lib -lhdf5_hl -lhdf5
-INCLUDE = -I$(INCLUDE_PATH)/include -I$(INCLUDE_PATH)/include
+LIBRARIES = $(LIB_NETCDF)
+INCLUDE = $(INC_NETCDF)
 
-# Define the driver program and associated subroutines for the fidelity test
-FUSE_DRIVER = \
-	sobol.f90 \
-  fuse_rmse.f90 \
-	functn.f90 \
-  fuse_driver.f90
-DRIVER = $(patsubst %, $(DRIVER_DIR)/%, $(FUSE_DRIVER))
+GENINC := $(F_MASTER)build/generated
+VERSIONFILE := $(GENINC)/fuseversion.inc
 
-# Define the executables
-DRIVER_EX = fuse.exe
+# Use /bin/sh-compatible commands
+VERSION    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "no-tag")
+BUILDTIME  := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+GITBRANCH  := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
+GITHASH    := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+
+GENINC := $(F_MASTER)build/generated
+VERSIONFILE := $(GENINC)/fuseversion.inc
+
+$(GENINC):
+	mkdir -p $@
+
+$(VERSIONFILE): | $(GENINC)
+	@{ \
+	  echo "! Auto-generated: do not edit"; \
+	  echo "integer, parameter :: FUSE_VERSION_LEN = 64"; \
+	  echo "integer, parameter :: FUSE_BUILDTIME_LEN = 32"; \
+	  echo "integer, parameter :: FUSE_GITBRANCH_LEN = 64"; \
+	  echo "integer, parameter :: FUSE_GITHASH_LEN = 64"; \
+	  printf "character(len=FUSE_VERSION_LEN),   parameter :: FUSE_VERSION    = '%s'\n" "$(VERSION)"; \
+	  printf "character(len=FUSE_BUILDTIME_LEN), parameter :: FUSE_BUILDTIME  = '%s'\n" "$(BUILDTIME)"; \
+	  printf "character(len=FUSE_GITBRANCH_LEN), parameter :: FUSE_GITBRANCH  = '%s'\n" "$(GITBRANCH)"; \
+	  printf "character(len=FUSE_GITHASH_LEN),   parameter :: FUSE_GITHASH    = '%s'\n" "$(GITHASH)"; \
+	} > $@
 
 #========================================================================
 # PART 2: Assemble all of the FUSE sub-routines
 #========================================================================
 
 # Define directories
-NUMREC_DIR = $(F_KORE_DIR)FUSE_NR
-HOOKUP_DIR = $(F_KORE_DIR)FUSE_HOOK
-DRIVER_DIR = $(F_KORE_DIR)FUSE_DMSL
-NETCDF_DIR = $(F_KORE_DIR)FUSE_NETCDF
-ENGINE_DIR = $(F_KORE_DIR)FUSE_ENGINE
-SCE_DIR    = $(F_KORE_DIR)FUSE_SCE
-TIME_DIR   = $(F_KORE_DIR)FUSE_TIME
+NUMREC_DIR  = $(F_KORE_DIR)numrec
+HOOKUP_DIR  = $(F_KORE_DIR)hookup
+DRIVER_DIR  = $(F_KORE_DIR)driver
+NETCDF_DIR  = $(F_KORE_DIR)netcdf
+DSHARE_DIR  = $(F_KORE_DIR)dshare
+PRELIM_DIR  = $(F_KORE_DIR)prelim
+RUNTIME_DIR = $(F_KORE_DIR)runtime
+PHYSICS_DIR = $(F_KORE_DIR)physics
+OLDPHYS_DIR = $(F_KORE_DIR)physics_orig
+SOLVER_DIR  = $(F_KORE_DIR)solver_orig
+UTILMS_DIR  = $(F_KORE_DIR)util
+SCE_DIR     = $(F_KORE_DIR)sce
+TIME_DIR    = $(F_KORE_DIR)netcdf
 
-# Utility modules
-FUSE_UTILMS= \
+# Define the executables
+DRIVER_EX = fuse.exe
+
+# Define the driver program and associated subroutines for the fidelity test
+FUSE_DRIVER = \
+	setup_domain.f90 \
+	setup_model_definition.f90 \
+	fuse_rmse.f90 functn.f90 \
+	sce_driver.f90 \
+  fuse_driver.f90
+DRIVER = $(patsubst %, $(DRIVER_DIR)/%, $(FUSE_DRIVER))
+
+# Manager modules
+FUSE_HOOKUP= \
 	kinds_dmsl_kit_FUSE.f90 \
-	utilities_dmsl_kit_FUSE.f90 \
-	fuse_fileManager.f90
-UTILMS = $(patsubst %, $(HOOKUP_DIR)/%, $(FUSE_UTILMS))
+	utilities_dmsl_kit_FUSE.f90
+HOOKUP = $(patsubst %, $(HOOKUP_DIR)/%, $(FUSE_HOOKUP))
 
 # Numerical Recipes utilities
 FUSE_NRUTIL= \
@@ -89,7 +119,9 @@ NRUTIL = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NRUTIL))
 # Data modules
 FUSE_DATAMS=    \
   model_defn.f90 \
+	data_types.f90 \
 	model_defnames.f90 \
+	globaldata.f90 \
 	multiconst.f90 \
 	multiforce.f90 \
 	multibands.f90 \
@@ -99,15 +131,18 @@ FUSE_DATAMS=    \
 	multiroute.f90 \
 	multistats.f90 \
 	model_numerix.f90
-DATAMS = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_DATAMS))
+DATAMS = $(patsubst %, $(DSHARE_DIR)/%, $(FUSE_DATAMS))
 
 # Time I/O modules
 FUSE_TIMEMS=    \
   time_io.f90
 TIMUTILS = $(patsubst %, $(TIME_DIR)/%, $(FUSE_TIMEMS))
 
-# Information modules
-FUSE_INFOMS= \
+# Utility modules
+FUSE_UTILMS= \
+	fuse_fileManager.f90 \
+	alloc_domain.f90 \
+	alloc_scratch.f90 \
 	metaoutput.f90 \
 	metaparams.f90 \
 	meta_stats.f90 \
@@ -120,13 +155,32 @@ FUSE_INFOMS= \
 	sumextract.f90 \
 	str_2_xtry.f90 \
 	xtry_2_str.f90
-INFOMS = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_INFOMS))
+UTILMS = $(patsubst %, $(UTILMS_DIR)/%, $(FUSE_UTILMS))
 
 # Numerical Recipes
 FUSE_NR_SUB= \
 	ludcmp.f90 lubksb.f90 svbksb.f90 svdcmp.f90 pythag.f90 \
 	gammln.f90 gammp.f90 gcf.f90 gser.f90
 NR_SUB = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NR_SUB))
+
+# FUSE physics (differentiable model)
+FUSE_PHYSICS= \
+	smoothers.f90 \
+	get_parent.f90 \
+	update_swe_diff.f90 \
+	qsatexcess_diff.f90 \
+	evap_upper_diff.f90 \
+	evap_lower_diff.f90 \
+	qinterflow_diff.f90 \
+	qpercolate_diff.f90 \
+	q_baseflow_diff.f90 \
+	q_misscell_diff.f90 \
+	mstate_rhs_diff.f90 \
+	mod_derivs_diff.f90 \
+	conserve_clamp.f90 \
+	fix_ovshoot.f90 \
+	implicit_solve.f90
+PHYSICS = $(patsubst %, $(PHYSICS_DIR)/%, $(FUSE_PHYSICS))
 
 # Model guts
 FUSE_MODGUT=\
@@ -140,14 +194,13 @@ FUSE_MODGUT=\
 	qpercolate.f90 \
 	q_baseflow.f90 \
 	q_misscell.f90 \
-	logismooth.f90 \
 	mstate_eqn.f90 \
 	fix_states.f90 \
 	meanfluxes.f90 \
 	wgt_fluxes.f90 \
 	updatstate.f90 \
 	q_overland.f90
-MODGUT = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_MODGUT))
+MODGUT = $(patsubst %, $(OLDPHYS_DIR)/%, $(FUSE_MODGUT))
 
 # Solver
 FUSE_SOLVER= \
@@ -158,13 +211,15 @@ FUSE_SOLVER= \
 	fmin.f90 fdjac_ode.f90 flux_deriv.f90 disaggflux.f90 \
 	fuse_sieul.f90 \
 	newtoniter.f90 lnsrch.f90
-SOLVER = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_SOLVER))
+SOLVER = $(patsubst %, $(SOLVER_DIR)/%, $(FUSE_SOLVER))
 
 # Define routines for FUSE preliminaries
 FUSE_PRELIM= \
+	parse_command_args.f90 \
 	ascii_util.f90 \
 	uniquemodl.f90 \
 	getnumerix.f90 \
+	force_info.f90 \
 	getparmeta.f90 \
 	assign_stt.f90 \
 	assign_flx.f90 \
@@ -177,28 +232,29 @@ FUSE_PRELIM= \
 	qtimedelay.f90 \
 	init_stats.f90 \
 	init_state.f90
-PRELIM = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_PRELIM))
+PRELIM = $(patsubst %, $(PRELIM_DIR)/%, $(FUSE_PRELIM))
 
-FUSE_MODRUN= \
+FUSE_RUNTIME= \
 	conv_funcs.f90 \
-	force_info.f90 \
 	clrsky_rad.f90 \
 	getPETgrid.f90 \
-	get_mbands.f90 \
-	get_time_indices.f90\
+	get_time_windows.f90 \
+	get_time_indices.f90 \
 	initfluxes.f90 \
 	set_all.f90 \
 	ode_int.f90 \
 	fuse_solve.f90 \
 	comp_stats.f90 \
 	mean_stats.f90
-MODRUN = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_MODRUN))
+RUNTIME = $(patsubst %, $(RUNTIME_DIR)/%, $(FUSE_RUNTIME))
 
 # Define NetCDF routines
 FUSE_NETCDF = \
     handle_err.f90 \
     extractor.f90 juldayss.f90 caldatss.f90 \
-    get_gforce.f90 \
+    domain_decomp.f90 \
+		get_gforce.f90 \
+		get_mbands.f90 \
     get_smodel.f90 \
 		get_fparam.f90 \
     def_params.f90 \
@@ -213,8 +269,8 @@ SCE = \
 	sce_16plus.o
 
 # ... and stitch it all together...
-FUSE_ALL = $(UTILMS) $(NRUTIL) $(DATAMS) $(TIMUTILS) $(INFOMS) \
-	$(NR_SUB) $(MODGUT) $(SOLVER) $(PRELIM) $(MODRUN) \
+FUSE_ALL = $(HOOKUP) $(NRUTIL) $(DATAMS) $(UTILMS) $(TIMUTILS) \
+	$(NR_SUB) $(PHYSICS) $(MODGUT) $(SOLVER) $(PRELIM) $(RUNTIME) \
 	$(NETCDF) $(SCE)
 
 #========================================================================
@@ -234,15 +290,15 @@ endif
 ifeq "$(FC)" "gfortran"
 
  FLAGS_NORMA = -O3 -ffree-line-length-none -fmax-errors=0 -cpp
- FLAGS_DEBUG = -p -g -Wall -ffree-line-length-none -fmax-errors=0 -fbacktrace -fcheck=bounds -cpp
- FLAGS_DEBUG = -p -Og -ffree-line-length-none -fmax-errors=0 -fcheck=bounds -cpp # without -warn all
+ #FLAGS_DEBUG = -Wall -ffree-line-length-none -fmax-errors=0 -fbacktrace -fcheck=bounds -cpp
+ FLAGS_DEBUG = -O0 -ffree-line-length-none -fmax-errors=0 -fcheck=bounds -cpp # without -warn all
  FLAGS_FIXED = -O2 -c -ffixed-form
 
 endif
 
 # select a set of flags
-FLAGS = $(FLAGS_NORMA)
-#FLAGS = $(FLAGS_DEBUG)
+#FLAGS = $(FLAGS_NORMA) -I$(GENINC)
+FLAGS = $(FLAGS_DEBUG) -I$(GENINC)
 
 # MPI: FUSE with MPI has been compiled successfully with mpif90 and mpiifort.
 # Note: override must be specifed to enable FC passed as argument to be overridden
@@ -267,7 +323,9 @@ endif
 all: compile install clean
 
 # compile FUSE into a static library
-compile: sce_16plus.o
+compile: sce_16plus.o | $(GENINC)
+	@rm -f $(VERSIONFILE)
+	@$(MAKE) $(VERSIONFILE)
 	$(FC) $(FLAGS) $(FUSE_ALL) $(DRIVER) \
 	$(LIBRARIES) $(INCLUDE) $(MPI_FLAGS) -o $(DRIVER_EX)
 
