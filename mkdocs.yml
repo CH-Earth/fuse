@@ -1,5 +1,7 @@
 site_name: FUSE manual
-repo_url: https://github.com/naddor/fuse
+repo_url: https://github.com/CH-Earth/fuse
+site_url: https://ch-earth.github.io/fuse/
+edit_uri: edit/develop/docs/
 docs_dir: docs
 theme:
   name: readthedocs
@@ -12,6 +14,7 @@ nav:
       - Test cases: 'install/test_cases.md'
   - Execution:
       - Overview: 'modes/overview.md'
+      - Arguments: 'modes/arguments.md'
       - Model structure: 'modes/structure.md'
       - Parameter modes: 'modes/execution_modes.md'
       - Spatial modes: 'modes/spatial_modes.md'
