@@ -1,21 +1,30 @@
 # rtf files
 *.rtf
+
 # executables and bin directory
 bin
 site
 *.exe
+
 # temporary files
 *~
 *.swp
+
 # any 'junk' files or directories
 *junk*/
 *junk*
+
+# legacy SVN files
+.svn/
+
 # sublime text workspace and project files
 *.sublime-project
 *.sublime-workspace
+
 # cscope and ctags files
 *cscope*
 .tags*
+
 # OS X .DS_Store files
 .DS_Store
 
