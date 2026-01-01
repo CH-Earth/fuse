@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="description" content="None" /><link rel="canonical" href="https://ch-earth.github.io/fuse/" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>FUSE manual</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Home";
+        var mkdocs_page_input_path = "index.md";
+        var mkdocs_page_url = "/fuse/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="." class="icon icon-home"> FUSE manual
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Home</a>
+    <ul class="current">
+    </ul>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Installation and test cases</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="install/install_fuse/">Installation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="install/test_data/">Test data</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="install/test_cases/">Test cases</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Execution</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="modes/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="modes/arguments/">Arguments</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="modes/structure/">Model structure</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="modes/execution_modes/">Parameter modes</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="modes/spatial_modes/">Spatial modes</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="modes/numerical_methods/">Numerical methods</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Files</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="files/file_manager/">File manager</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="files/input_files/">Input files</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="files/settings_files/">Settings files</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="files/output_files/">Output files</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Modules</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="modules/1_precip/">Precipitation</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extras</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="extras/mpi/">MPI</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="extras/mizuRoute/">mizuRoute for FUSE</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="extras/tofu/">Tools for FUSE</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="extras/camels_for_fuse/">CAMELS for FUSE</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href=".">FUSE manual</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Home</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/CH-Earth/fuse/edit/develop/docs/index.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h2 id="fuse-in-a-nutshell">FUSE in a nutshell</h2>
+<p>The Framework for Understanding Structural Errors or <a href="https://github.com/naddor/fuse">FUSE</a> is modular modelling framework (MMF) which enables the generation of a myriad of conceptual hydrological models by recombining elements from commonly-used models.</p>
+<p>FUSE was build from scratch to be modular, it offers several options for each important modelling decision and enables the addition of new modules. In contrast, most traditional hydrological models rely on a single model structure (most processes are simulated by a single set of equations). FUSE modularity makes it easier to i) understand differences between models, ii) run a large ensemble of models, iii) capture the spatial variability of hydrological processes and iv) develop and improve hydrological models in a coordinated fashion across the community.</p>
+<h2 id="description-and-credits">Description and credits</h2>
+<p>FUSE initial implementation (FUSE1) is described in <a href="http://dx.doi.org/10.1029/2007WR006735">Clark et al. (WRR, 2008)</a>. The implementation documented here (which will become FUSE2) was created with users in mind and significantly increases the usability and range of applicability of the original version. In particular, it involves 5 main additional features:</p>
+<ol>
+<li>an interface enabling the use of the different FUSE modes (default, calibration, regionalisation),</li>
+<li>a distributed mode enabling FUSE to run on a grid whilst efficiently managing memory,</li>
+<li>all the input, output and parameter files are now NetCDF files to improve reproducibility,</li>
+<li>a calibration mode based on the shuffled complex evolution algorithm <a href="http://dx.doi.org/10.1029/91WR02985">(Duan et al., WRR, 1992)</a>,</li>
+<li>a snow module described in <a href="http://dx.doi.org/10.1002/2014WR016736">Henn et al. (WRR, 2015)</a>.</li>
+</ol>
+<h2 id="license">License</h2>
+<p>FUSE is distributed under the GNU Public License Version 3. For details see the file <code>LICENSE</code> in the FUSE root directory or visit the <a href="https://www.gnu.org/licenses/gpl-3.0.html">online version</a>.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="install/install_fuse/" class="btn btn-neutral float-right" title="Installation">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/CH-Earth/fuse" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+    
+      <span><a href="install/install_fuse/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
+
+<!--
+MkDocs version : 1.6.1
+Build Date UTC : 2026-01-01 04:29:11.927296+00:00
+-->
