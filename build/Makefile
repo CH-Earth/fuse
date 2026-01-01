@@ -7,7 +7,7 @@
 #========================================================================
 
 # Define core directory below which everything resides
-F_MASTER = ${HOME}/fuse/
+F_MASTER = your/path/to/fuse/repository/
 
 # Core directory that contains FUSE source code
 F_KORE_DIR = $(F_MASTER)build/FUSE_SRC/
@@ -40,20 +40,18 @@ ifeq "$(FC)" "ifort"
 	HDF_PATH  = ${ISCA_HDF_PATH_ifort}
 endif
 
-ifeq "$(FC)" "gfortran"
-	NCDF_LIB_PATH = /usr/lib/x86_64-linux-gnu#${NCDF_PATH}
-	HDF_LIB_PATH = /usr/lib/x86_64-linux-gnu/hdf5/serial#${HDF_PATH}
-	INCLUDE_PATH = /usr#${IN_PATH}
-endif
+NCDFF_LIB_PATH = /your/path/to/netcdf-fortran
+NCDF_LIB_PATH = /your/path/to/netcdf
+HDF_LIB_PATH = /your/path/to/hdf5
 
-LIBRARIES = -L$(NCDF_LIB_PATH)/lib -lnetcdff -lnetcdf -L$(HDF_LIB_PATH)/lib -lhdf5_hl -lhdf5
-INCLUDE = -I$(INCLUDE_PATH)/include -I$(INCLUDE_PATH)/include
+LIBRARIES = -L$(NCDFF_LIB_PATH)/lib -lnetcdff -L$(NCDF_LIB_PATH)/lib -lnetcdf -L$(HDF_LIB_PATH)/lib -lhdf5_hl -lhdf5
+INCLUDE = -I$(NCDFF_LIB_PATH)/include -I$(NCDF_LIB_PATH)/include -I$(HDF_LIB_PATH)/include
 
 # Define the driver program and associated subroutines for the fidelity test
 FUSE_DRIVER = \
-	sobol.f90 \
-  fuse_rmse.f90 \
-	functn.f90 \
+  sobol.f90 \
+  fuse_metric.f90 \
+  functn.f90 \
   fuse_driver.f90
 DRIVER = $(patsubst %, $(DRIVER_DIR)/%, $(FUSE_DRIVER))
 
@@ -180,6 +178,7 @@ FUSE_PRELIM= \
 PRELIM = $(patsubst %, $(ENGINE_DIR)/%, $(FUSE_PRELIM))
 
 FUSE_MODRUN= \
+        metrics.f90 \
 	conv_funcs.f90 \
 	force_info.f90 \
 	clrsky_rad.f90 \
@@ -200,7 +199,7 @@ FUSE_NETCDF = \
     extractor.f90 juldayss.f90 caldatss.f90 \
     get_gforce.f90 \
     get_smodel.f90 \
-		get_fparam.f90 \
+    get_fparam.f90 \
     def_params.f90 \
     def_output.f90 \
     def_sstats.f90 \
@@ -223,26 +222,20 @@ FUSE_ALL = $(UTILMS) $(NRUTIL) $(DATAMS) $(TIMUTILS) $(INFOMS) \
 
 # Define flags - these are compiler-dependent
 ifeq "$(FC)" "ifort"
-
  FLAGS_NORMA = -O3 -FR -auto -fltconsistency -fpe0 -fpp
  FLAGS_DEBUG = -O0 -p -g -debug -warn all -check all -FR -auto -WB -traceback -fltconsistency -fpe0 -fpp
  FLAGS_DEBUG = -O0 -p -g -debug -check all -FR -auto -WB -traceback -fltconsistency -fpe0 -fpp # without -warn all
  FLAGS_FIXED = -O2 -c -fixed
-
 endif
-
 ifeq "$(FC)" "gfortran"
-
- FLAGS_NORMA = -O3 -ffree-line-length-none -fmax-errors=0 -cpp
+ FLAGS_NORMA = -O3 -ffree-line-length-none -fmax-errors=0 -cpp -fallow-argument-mismatch
  FLAGS_DEBUG = -p -g -Wall -ffree-line-length-none -fmax-errors=0 -fbacktrace -fcheck=bounds -cpp
  FLAGS_DEBUG = -p -Og -ffree-line-length-none -fmax-errors=0 -fcheck=bounds -cpp # without -warn all
  FLAGS_FIXED = -O2 -c -ffixed-form
-
 endif
 
 # select a set of flags
 FLAGS = $(FLAGS_NORMA)
-#FLAGS = $(FLAGS_DEBUG)
 
 # MPI: FUSE with MPI has been compiled successfully with mpif90 and mpiifort.
 # Note: override must be specifed to enable FC passed as argument to be overridden
@@ -263,12 +256,17 @@ ifeq "$(MODE)" "distributed"
 
 endif
 
+# Compile SCE code written in Fortran 77
+sce_16plus.o: $(SCE_DIR)/sce_16plus.f
+	$(FC) -O2 -c -ffixed-form -o $@ $<
+
 # Compile
 all: compile install clean
 
 # compile FUSE into a static library
 compile: sce_16plus.o
-	$(FC) $(FLAGS) $(FUSE_ALL) $(DRIVER) \
+	$(FC) -O3 -ffree-line-length-none -fmax-errors=0 -cpp -fallow-argument-mismatch \
+	$(FUSE_ALL) $(DRIVER) \
 	$(LIBRARIES) $(INCLUDE) $(MPI_FLAGS) -o $(DRIVER_EX)
 
 # Remove object files
@@ -281,7 +279,3 @@ clean:
 install:
 	mkdir -p $(EXE_PATH)
 	mv $(DRIVER_EX) $(EXE_PATH)
-
-# describe how to compile SCE code written in Fortran 77
-sce_16plus.o: $(SCE_DIR)/sce_16plus.f
-	$(FC) $(FLAGS_FIXED) $(SCE_DIR)/sce_16plus.f

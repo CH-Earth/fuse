@@ -5,6 +5,7 @@ PROGRAM PARSLICE_OPTIM
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program to create a parameter slice at the optimal value
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 USE nrtype                                                ! variable types, etc.
 USE ddirectory                                            ! directory for data files
@@ -24,7 +25,7 @@ USE fuse_fileManager,only: Q_ONLY                         ! only write streamflo
 USE model_numerix                                         ! defines decisions on model numerix
 ! access to qnewton and model simulation modules
 USE dmsl_wrapper_module                                   ! wrapper for dmsl
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                    ! run model and compute the metric chosen as objective function
 ! software settings (Windows only)
 !use softwareData
 IMPLICIT NONE
@@ -191,7 +192,7 @@ END DO
 ! (2) MULTI START QUASI-NEWTON...
 ! --------------------------------------------------------------------------------------
 ! define the desired objective function and allocate space for the objective function values
-OF_NAME = 'raw_rmse'; ALLOCATE(OF_VALS(NMULTI),XPAR(NUMPAR,NMULTI))
+OF_NAME = 'metric_val'; ALLOCATE(OF_VALS(NMULTI),XPAR(NUMPAR,NMULTI))
 ! loop through different starting positions (use the Sobol sequence)
 DO ISEED=IBEGIN,(IBEGIN+NMULTI)-1
  ! get the seed as a character string
@@ -227,7 +228,7 @@ DO ISEED=IBEGIN,(IBEGIN+NMULTI)-1
    IF (ERR.NE.0) PRINT *, TRIM(MESSAGE)
    WRITE(*,'(5(I6,1X),20(F9.3,1X))') FCOUNT,ITER,FCALLS,GCALLS,HCALLS,FOPT,XOPT
    ! run model again with optimum parameter set (to populate structures and write model output)
-   CALL FUSE_RMSE(XOPT,FOPT,OUTPUT_FLAG)
+   CALL FUSE_METRIC(XOPT,FOPT,OUTPUT_FLAG)
    ! write model parameters and summary statistics
    CALL PUT_PARAMS(PCOUNT,ONEMOD)  ! PCOUNT = index for parameter set; ONEMOD=1 (just one model structure)
    CALL PUT_SSTATS(PCOUNT,ONEMOD)
@@ -277,8 +278,8 @@ END DO
 DO MPAR=1,NGRID
  ! perturb parameters
  !XOPT(IWANT) = XLO(IWANT) + REAL(MPAR-1,KIND(SP))/REAL(NGRID-1,KIND(SP)) * (XHI(IWANT)-XLO(IWANT))
- ! run model (parameters and statistics are written in FUSE_RMSE)
- CALL FUSE_RMSE(XOPT,FOPT,OUTPUT_FLAG)
+ ! run model (parameters and statistics are written in FUSE_METRIC)
+ CALL FUSE_METRIC(XOPT,FOPT,OUTPUT_FLAG)
  STOP
 END DO
 ! deallocate parameter vectors

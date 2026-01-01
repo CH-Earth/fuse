@@ -98,13 +98,16 @@ SUBROUTINE GET_SCE_PARAM(NETCDF_FILE,IMOD,MPAR,XPAR)
 ! Martyn Clark, 2009
 ! Modified by Nans Addor - previously the parameter set extracted was the last one,
 ! now it is the one associated with the lowest RMSE
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! --------
-! Read parameters in LPARAM from the parameter set with the lowest RMSE in the specified NetCDF file
+! Read parameters in LPARAM from the parameter set with the best value of the metric 
+!  chosen as objective function in the specified NetCDF file
 ! ---------------------------------------------------------------------------------------
 USE nrtype                                            ! variable types, etc.
-USE fuse_fileManager, only : OUTPUT_PATH              ! define output path
+USE fuse_fileManager, only : OUTPUT_PATH, METRIC, &   ! define output path and metric used as objective function
+     TRANSFO                                          ! transformation applied on streamflow
 USE multiparam, ONLY: LPARAM, NUMPAR                  ! parameter names
 IMPLICIT NONE
 ! input
@@ -118,10 +121,11 @@ INTEGER(I4B)                           :: IERR        ! error code
 INTEGER(I4B)                           :: NCID        ! NetCDF file ID
 INTEGER(I4B)                           :: IDIMID      ! NetCDF dimension ID
 INTEGER(I4B)                           :: IVARID      ! NetCDF variable ID
-INTEGER(I4B)                           :: I_RAW_RMSE  ! NetCDF RMSE ID
-INTEGER(I4B), DIMENSION(1)             :: I_OPT_PARA  ! index of the optimum parameter set (e.g. lowest RSME) - MUST BE DIMENSIONED
-REAL(DP), DIMENSION(:),ALLOCATABLE     :: RAW_RMSE    ! RMSE for each parameter set
-REAL(DP), DIMENSION(1)                 :: LOWEST_RAW_RMSE    ! LOWEST RAW RMSE
+INTEGER(I4B)                           :: I_METRIC    ! NetCDF METRIC ID
+INTEGER(I4B)                           :: I_OPT_PARA  ! index of the optimum parameter set (e.g. lowest RSME) - MUST BE DIMENSIONED
+REAL(DP), DIMENSION(:),ALLOCATABLE     :: METRIC_VAL  ! Metric value for each parameter set
+INTEGER(I4B), DIMENSION(1)             :: ARRAY_SIZE  ! Dimension of the metric chosen as objective function 
+REAL(DP)                               :: BEST_METRIC ! best value of the metric chosen as objective function 
 INTEGER(I4B)                           :: IPAR        ! loop through model parameters
 INTEGER(I4B)                           :: NPAR        ! number of parameter sets in output file
 REAL(DP)                               :: APAR        ! parameter value (single precision)
@@ -149,20 +153,30 @@ IERR = NF_OPEN(TRIM(NETCDF_FILE),NF_NOWRITE,NCID); CALL HANDLE_ERR(IERR)
  IERR = NF_INQ_DIMID(NCID,'par',IDIMID); CALL HANDLE_ERR(IERR)
  IERR = NF_INQ_DIMLEN(NCID,IDIMID,NPAR); CALL HANDLE_ERR(IERR)
 
- ! extract RMSE for each parameter set
- print *, 'Length of the par dimension (the number of parameter sets produced by SCE is lower)', NPAR
+ ! extract METRIC_VAL for each parameter set
+ print *, 'Length of the par dimension (the number of parameter sets produced by SCE is higher)', NPAR
 
- ALLOCATE(RAW_RMSE(NPAR),STAT=IERR); IF(IERR.NE.0) STOP ' problem allocating space for RAW_RMSE '
+ ALLOCATE(METRIC_VAL(NPAR),STAT=IERR); IF(IERR.NE.0) STOP ' problem allocating space for METRIC_VAL '
 
- IERR = NF_INQ_VARID(NCID,'raw_rmse',I_RAW_RMSE); CALL HANDLE_ERR(IERR)
- IERR = NF_GET_VAR_DOUBLE(NCID,I_RAW_RMSE,RAW_RMSE); CALL HANDLE_ERR(IERR)
+ IERR = NF_INQ_VARID(NCID,'metric_val',I_METRIC); CALL HANDLE_ERR(IERR)
+ IERR = NF_GET_VAR_DOUBLE(NCID,I_METRIC,METRIC_VAL); CALL HANDLE_ERR(IERR)
 
- I_OPT_PARA = MINLOC(RAW_RMSE,DIM=1) !TODO: use argument MASK to find best parameter set for each of the SCE run
- LOWEST_RAW_RMSE=RAW_RMSE(I_OPT_PARA)
- print *, 'Index of parameter set with lowest RMSE =',I_OPT_PARA
- print *, 'Lowest RMSE =',LOWEST_RAW_RMSE
+ 
+ ! Use MINLOC or MAXLOC depending on the metric
+ IF (METRIC=="KGE" .OR. METRIC=="KGEP" .OR. METRIC=="NSE") THEN
+   I_OPT_PARA = MAXLOC(METRIC_VAL,DIM=1, MASK=METRIC_VAL /= -9999) !TODO: use argument MASK to find best parameter set for each of the SCE run
+ ELSE IF (METRIC=="MAE" .OR. METRIC=="RMSE" ) THEN
+   I_OPT_PARA = MINLOC(METRIC_VAL,DIM=1, MASK=METRIC_VAL /= -9999) !TODO: use argument MASK to find best parameter set for each of the SCE run
+ ELSE 
+   STOP 'The requested metric is not available in metrics module'
+ END IF
+   
+ BEST_METRIC=METRIC_VAL(I_OPT_PARA)
 
- DEALLOCATE(RAW_RMSE,STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating ATIME/TDATA '
+ print *, 'Index of parameter set with best metric value =',I_OPT_PARA
+ print *, 'Best value [Metric:',METRIC,' / Transfo:',TRANSFO,'] =',BEST_METRIC
+
+ DEALLOCATE(METRIC_VAL,STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating ATIME/TDATA '
 
  PRINT *, 'Reading from NetCDF file parameter values for best parameter set:'
 

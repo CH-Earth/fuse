@@ -2,6 +2,7 @@ PROGRAM PARGRID_DRIVER
 ! ---------------------------------------------------------------------------------------
 ! Creator:
 ! Martyn Clark, 2009
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program for a parameter grid
@@ -21,7 +22,7 @@ USE par_insert_module                                     ! inserts model parame
 ! model numerix
 USE model_numerix                                         ! defines decisions on model numerix
 ! access to model simulation modules
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                    ! run model and compute the metric chosen as objective function
 IMPLICIT NONE
 ! ---------------------------------------------------------------------------------------
 ! (0) GET COMMAND-LINE ARGUMENTS...
@@ -166,7 +167,7 @@ DO
  CALL DEF_SSTATS()        ! define summary statistics (REDEF)
  X0I = XDF  ! set parameters to their default value
  ! initial run with default parameter sets
- !CALL FUSE_RMSE(X0I,FPAR,OUTPUT_FLAG)
+ !CALL FUSE_METRIC(X0I,FPAR,OUTPUT_FLAG)
  !CYCLE 
  ! identify IPAR and JPAR
  DO KPAR=1,NUMPAR
@@ -179,8 +180,8 @@ DO
    ! perturb parameters
    X0I(IPAR) = XLO(IPAR) + REAL(MPAR-1,KIND(SP))/REAL(NGRID-1,KIND(SP)) * (XHI(IPAR)-XLO(IPAR))
    X0I(JPAR) = XLO(JPAR) + REAL(NPAR-1,KIND(SP))/REAL(NGRID-1,KIND(SP)) * (XHI(JPAR)-XLO(JPAR))
-   ! run model (parameters and statistics are written in FUSE_RMSE)
-   CALL FUSE_RMSE(X0I,FPAR,OUTPUT_FLAG)
+   ! run model (parameters and statistics are written in FUSE_METRIC)
+   CALL FUSE_METRIC(X0I,FPAR,OUTPUT_FLAG)
    write(*,'(i6,1x,20(f9.3,1x))') PCOUNT, X0I
   END DO  ! npar
  END DO  ! mpar

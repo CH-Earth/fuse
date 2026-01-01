@@ -2,6 +2,7 @@ PROGRAM SCE_MERGE
 ! ---------------------------------------------------------------------------------------
 ! Creator:
 ! Martyn Clark, 2009
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program to merge SCE runs from multiple models
@@ -15,7 +16,7 @@ USE model_defn,nstateFUSE=>nstate                         ! model definition str
 USE multiparam, ONLY: LPARAM, PARATT, NUMPAR              ! parameter metadata structures
 USE multistats, ONLY: PCOUNT, MOD_IX                      ! parameter set / model counters
 ! access to model simulation modules
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                    ! run model and compute the metric chosen as objective function
 IMPLICIT NONE
 ! ---------------------------------------------------------------------------------------
 ! (0) GET COMMAND-LINE ARGUMENTS
@@ -43,7 +44,7 @@ INTEGER(I4B)                           :: ONEMOD=1        ! just one model in ou
 LOGICAL(LGT)                           :: OUTPUT_FLAG     ! switch off/on model output
 INTEGER(I4B)                           :: MPAR            ! number of model parameters
 REAL(SP), DIMENSION(:), ALLOCATABLE    :: XPAR            ! model parameters
-REAL(SP)                               :: RMSE            ! root mean squared error
+REAL(SP)                               :: METRIC_VAL      ! value of the metric chosen as objective function
 ! ---------------------------------------------------------------------------------------
 ! (0) GET COMMAND-LINE ARGUMENTS
 ! ---------------------------------------------------------------------------------------
@@ -129,10 +130,10 @@ OPEN(21,FILE=TRIM(NC_FILE))
   ! compute derived model parameters (bucket sizes, etc.)
   CALL PAR_DERIVE(ERR,MESSAGE) ! added err,message (from URS_driver_sce.f90) because PAR_DERIVE requires arguments
   ! define indices for data write
-  PCOUNT=0          ! ensure the parameter counter is set to zero (incremented in fuse_rmse)
+  PCOUNT=0          ! ensure the parameter counter is set to zero (incremented in fuse_metric)
   MOD_IX=MOD_IX + 1 ! increment the model index
   ! run zee model
-  CALL FUSE_RMSE(XPAR,RMSE,OUTPUT_FLAG)
+  CALL FUSE_METRIC(XPAR,METRIC_VAL,OUTPUT_FLAG)
   ! deallocate space
   DEALLOCATE(XPAR, STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating XPAR '
  END DO ! (looping through output files)

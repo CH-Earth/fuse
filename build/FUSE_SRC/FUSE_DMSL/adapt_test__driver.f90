@@ -2,6 +2,7 @@ PROGRAM ADAPT_TEST__DRIVER
 ! ---------------------------------------------------------------------------------------
 ! Creator:
 ! Martyn Clark, 2009
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program to evaluate the accuracy and efficiency of adaptive sub-stepping routines
@@ -21,7 +22,7 @@ USE par_insert_module                                     ! inserts model parame
 ! model numerix
 USE model_numerix                                         ! defines decisions on model numerix
 ! access to model simulation modules
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                    ! run model and compute the metric chosen as objective function
 IMPLICIT NONE
 ! ---------------------------------------------------------------------------------------
 ! (0) GET COMMAND-LINE ARGUMENTS...
@@ -55,7 +56,7 @@ INTEGER(KIND=4)                        :: ISEED   ! seed for the random sequence
 REAL(KIND=4),DIMENSION(:), ALLOCATABLE :: URAND   ! vector of quasi-random numbers U[0,1]
 INTEGER(I4B)                           :: ITRY    ! (looping)
 INTEGER(I4B)                           :: JTRY    ! (looping)
-REAL(SP)                               :: RMSE    ! error from the simulation
+REAL(SP)                               :: METRIC_VAL     ! error from the simulation
 ! ---------------------------------------------------------------------------------------
 ! (0) READ COMMAND LINE ARGUMENTS
 ! ---------------------------------------------------------------------------------------
@@ -129,8 +130,8 @@ ERR_TRUNC_ABS          = 1.e-9                 ! absolute temporal truncation er
 ERR_TRUNC_REL          = 1.e-9                 ! relative temporal truncation error tolerance
 MIN_TSTEP              = 0.01_sp/60._sp/24._sp ! minimum time step length (minutes --> days)
 MAX_TSTEP              = 10.0_sp/60._sp/24._sp ! maximum time step length (minutes --> days)
-! run model (parameters and statistics are written in FUSE_RMSE)
-CALL FUSE_RMSE(APAR,RMSE,OUTPUT_FLAG)
+! run model (parameters and statistics are written in FUSE_METRIC)
+CALL FUSE_METRIC(APAR,METRIC_VAL,OUTPUT_FLAG)
 ! save solution for subsequent testing
 AROUTE(:)%Q_ACCURATE = AROUTE(:)%Q_ROUTED
 ! modify numerix parameters
@@ -142,12 +143,12 @@ DO ITRY=3,9,3    ! play with different ERR_TRUNC_ABS parameters
   ERR_TRUNC_REL = 1. * 10.**-REAL(JTRY, KIND(SP))
   ! run zee model
   write(*,'(2(E15.7,1X))') ERR_TRUNC_ABS, ERR_TRUNC_REL
-  CALL FUSE_RMSE(APAR,RMSE,OUTPUT_FLAG)
+  CALL FUSE_METRIC(APAR,METRIC_VAL,OUTPUT_FLAG)
  END DO  ! (loop through different numerix parameter combinations)
 END DO  ! (loop through different numerix parameter combinations)
 ! for reference, include the fixed-step method
 TEMPORAL_ERROR_CONTROL = TS_FIXED              ! fixed time steps
-CALL FUSE_RMSE(APAR,RMSE,OUTPUT_FLAG)          ! run zee model
+CALL FUSE_METRIC(APAR,METRIC_VAL,OUTPUT_FLAG)          ! run zee model
 ! and, deallocate space
 DEALLOCATE(APAR,BL,BU,URAND)
 STOP

@@ -39,6 +39,7 @@ PROGRAM QNEW_MCMC__DRIVER
 ! ---------------------------------------------------------------------------------------
 ! Creator:
 ! Martyn Clark, 2009
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program for multi-start quasi-newton optimization
@@ -61,7 +62,7 @@ USE fuse_fileManager,only: Q_ONLY                         ! only write streamflo
 USE model_numerix                                         ! defines decisions on model numerix
 ! access to qnewton and model simulation modules
 USE dmsl_wrapper_module                                   ! wrapper for dmsl
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                    ! run model and compute the metric chosen as objective function
 ! software settings (Windows only)
 !use softwareData
 IMPLICIT NONE
@@ -250,7 +251,7 @@ END DO
 ! (2) MULTI START QUASI-NEWTON...
 ! --------------------------------------------------------------------------------------
 ! define the desired objective function and allocate space for the objective function values
-OF_NAME = 'raw_rmse'; ALLOCATE(OF_VALS(NMULTI),XPAR(NUMPAR,NMULTI))
+OF_NAME = 'metric_val'; ALLOCATE(OF_VALS(NMULTI),XPAR(NUMPAR,NMULTI))
 ! loop through different starting positions (use the Sobol sequence)
 DO ISEED=IBEGIN,(IBEGIN+NMULTI)-1
  ! get the seed as a character string
@@ -286,7 +287,7 @@ DO ISEED=IBEGIN,(IBEGIN+NMULTI)-1
    IF (ERR.NE.0) PRINT *, TRIM(MESSAGE)
    WRITE(*,'(5(I6,1X),20(F9.3,1X))') FCOUNT,ITER,FCALLS,GCALLS,HCALLS,FOPT,XOPT
    ! run model again with optimum parameter set (to populate structures and write model output)
-   CALL FUSE_RMSE(XOPT,FOPT,OUTPUT_FLAG)
+   CALL FUSE_METRIC(XOPT,FOPT,OUTPUT_FLAG)
    ! write model parameters and summary statistics
    CALL PUT_PARAMS(PCOUNT,ONEMOD)  ! PCOUNT = index for parameter set; ONEMOD=1 (just one model structure)
    CALL PUT_SSTATS(PCOUNT,ONEMOD)
@@ -331,7 +332,7 @@ sample0(0)  = log10(FOPT**2)  ! variance
 sample0(1:) = XOPT(1:)
 !write(*,'(es22.14e3)') sample0
 !write(*,'(Z16.16)') sample0
-covDiag0(0)   = 0.1_mrk*max(abs(sample0(0)),1._mrk)   ! assume typical RMSE = 1 mm/day for "optimal" param set
+covDiag0(0)   = 0.1_mrk*max(abs(sample0(0)),1._mrk)   ! assume typical METRIC_VAL = 1 mm/day for "optimal" param set
 covDiag0(1:)  = 0.1_mrk*max(abs(sample0(1:)),xsc(1:))
 !CALL MCMC_WRAPPER(sample0,covDiag0,err,message)
 IF (ERR.NE.0) PRINT *, TRIM(MESSAGE)
@@ -348,7 +349,7 @@ IF (ERR.NE.0) THEN; PRINT *, ERR, ' PROBLEM OPENING FILE '; STOP; ENDIF
   MSTATS%JUMP_TAKEN = 0._SP; IF (JUMP_FLAG) MSTATS%JUMP_TAKEN = 1._SP ! (convert flag to real)
   IF (IWANT.EQ.50) THEN
    ! run FUSE
-   CALL FUSE_RMSE(sample0(1:),FOPT,OUTPUT_FLAG)
+   CALL FUSE_METRIC(sample0(1:),FOPT,OUTPUT_FLAG)
    ! write model parameters and summary statistics
    CALL PUT_PARAMS(PCOUNT,ONEMOD)  ! PCOUNT = index for parameter set; ONEMOD=1 (just one model structure)
    CALL PUT_SSTATS(PCOUNT,ONEMOD)

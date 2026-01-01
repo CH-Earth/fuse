@@ -875,7 +875,9 @@ C  THIS SUBROUTINE IS FROM "NUMERICAL RECIPES" BY PRESS ET AL.
       IX2 = MOD((IA2 * IX2) + IC2,M2)
       IX3 = MOD((IA3 * IX3) + IC3,M3)
       J = 1 + ((97 * IX3) / M3)
-      IF ((J .GT. 97) .OR. (J .LT. 1)) PAUSE
+      IF ((J .GT. 97) .OR. (J .LT. 1)) THEN 
+      ! PAUSE
+      END IF
       RAN1 = R(J)
       R(J) = (DBLE(IX1) + (DBLE(IX2) * RM2)) * RM1
 C

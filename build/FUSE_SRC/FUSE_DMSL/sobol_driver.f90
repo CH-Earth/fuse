@@ -2,6 +2,7 @@ PROGRAM SOBOL_DRIVER
 ! ---------------------------------------------------------------------------------------
 ! Creator:
 ! Martyn Clark, 2009
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program to loop through example parameter sets
@@ -21,7 +22,7 @@ USE par_insert_module                                     ! inserts model parame
 ! model numerix
 USE model_numerix                                         ! defines decisions on model numerix
 ! access to model simulation modules
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                    ! run model and compute the metric chosen as objective function
 IMPLICIT NONE
 ! ---------------------------------------------------------------------------------------
 ! (0) GET COMMAND-LINE ARGUMENTS...
@@ -195,8 +196,8 @@ OPEN(IN_UNIT,FILE=TRIM(DATA_PATH)//TRIM(PARAMFILE)//'.dat',STATUS='old')
     ENDIF
    END DO
   END DO
-  ! run model (parameters and statistics are written in FUSE_RMSE)
-  CALL FUSE_RMSE(TRYPARS,FPAR,OUTPUT_FLAG)
+  ! run model (parameters and statistics are written in FUSE_METRIC)
+  CALL FUSE_METRIC(TRYPARS,FPAR,OUTPUT_FLAG)
  END DO
 CLOSE(IN_UNIT)
 STOP

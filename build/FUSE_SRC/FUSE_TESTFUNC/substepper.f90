@@ -218,7 +218,7 @@ SUBSTEPS: DO  ! continuous (recursive) loop over sub-steps
      HSTATE%STEP=TEMPSTEP
      CYCLE SUBSTEPS
     ENDIF
-    pause ' did not converge, and unable to make steps small enough '
+    STOP ' did not converge, and unable to make steps small enough '
    ENDIF
    ! -------------------------------------------------------------------------------------
    ! (2B) IMPLICIT ERROR ESTIMATE
@@ -234,7 +234,7 @@ SUBSTEPS: DO  ! continuous (recursive) loop over sub-steps
      X_MID2 = X_START + X0_DYDT*HSTATE%STEP       ! explicit solution
      CALL NEWTONITER(X_MID2,newStep,CHECK,NITER)  ! solve for X_MID
      IF (NITER > MAXNUM_ITERNS) MAXNUM_ITERNS=NITER
-     IF (NITER.GT.NITER_TOTAL) pause ' did not converge, two-step solution) '
+     IF (NITER.GT.NITER_TOTAL) stop ' did not converge, two-step solution) '
      FLUX_1 = M_FLUX                              ! save fluxes over the first half of the time step
      ! implicit solution over the second half of the sub-step
      MSTATE  = TSTATE                             ! model states at start of next sub-step (TSTATE = X_MID2)
@@ -243,7 +243,7 @@ SUBSTEPS: DO  ! continuous (recursive) loop over sub-steps
      X_END2  = X_MID2 + XM_DYDT*HSTATE%STEP       ! explicit solution
      CALL NEWTONITER(X_END2,newStep,CHECK,NITER)  ! try different values of X_END2 until converge
      IF (NITER > MAXNUM_ITERNS) MAXNUM_ITERNS=NITER
-     IF (NITER.GT.NITER_TOTAL) pause ' did not converge, two-step solution '
+     IF (NITER.GT.NITER_TOTAL) stop ' did not converge, two-step solution '
      FLUX_2 = M_FLUX                              ! save fluxes over the second half of the time step
      ! calculate fluxes used in WGT_FLUXES()
      IF (ORDER_ACCEPT.EQ.HIGHER_ORDER) THEN
@@ -340,7 +340,7 @@ SUBSTEPS: DO  ! continuous (recursive) loop over sub-steps
   IF (HSTATE%STEP.NE.STEP) THEN; PREVSTEP=STEP; ELSE; PREVSTEP=HSTATE%STEP; ENDIF
  ENDIF
  !print *, prevstep, step
- !IF (NUMSUB_REJECT.GT.10000) PAUSE
+ !IF (NUMSUB_REJECT.GT.10000) STOP
  ! (keep looping)
 
 END DO SUBSTEPS ! continuous (recursive) do loop

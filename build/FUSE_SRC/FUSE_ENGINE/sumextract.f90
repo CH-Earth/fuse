@@ -8,6 +8,7 @@ PURE FUNCTION SUMEXTRACT(STATNAME)
 ! Creator:
 ! --------
 ! Martyn Clark, 2007
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! --------
@@ -39,6 +40,10 @@ IF (TRIM(STATNAME).EQ.'qsim_lag1')   XVAR = MSTATS%QSIM_LAG1
 IF (TRIM(STATNAME).EQ.'raw_rmse')    XVAR = MSTATS%RAW_RMSE
 IF (TRIM(STATNAME).EQ.'log_rmse')    XVAR = MSTATS%LOG_RMSE
 IF (TRIM(STATNAME).EQ.'nash_sutt')   XVAR = MSTATS%NASH_SUTT
+IF (TRIM(STATNAME).EQ.'kge')         XVAR = MSTATS%KGE
+IF (TRIM(STATNAME).EQ.'kgep')        XVAR = MSTATS%KGEP
+IF (TRIM(STATNAME).EQ.'mae')         XVAR = MSTATS%MAE
+IF (TRIM(STATNAME).EQ.'metric_val')  XVAR = MSTATS%METRIC_VAL
 ! extract numerix stats
 IF (TRIM(STATNAME).EQ.'numerx_rmse') XVAR = MSTATS%NUM_RMSE      
 IF (TRIM(STATNAME).EQ.'mean_nfuncs') XVAR = MSTATS%NUM_FUNCS

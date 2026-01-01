@@ -73,8 +73,8 @@ INTEGER(I4B),PARAMETER                  :: HMETH=6         ! Hessian evaluation 
 INTEGER(I4B),PARAMETER                  :: HIMETH=5        ! Diagonal of estimated d2f/dx2
 REAL(SP)                                :: TRUSTRAD        ! initial scaled trust region radius (set<0 for internal default)
 ! Define maximum effort expended before termination
-INTEGER(I4B),PARAMETER                  :: MAXITER=5000   ! Maximum number of iterations
-INTEGER(I4B),PARAMETER                  :: MAXFEV=500     ! Maximum number of function calls
+INTEGER(I4B),PARAMETER                  :: MAXITER=5000    ! Maximum number of iterations
+INTEGER(I4B),PARAMETER                  :: MAXFEV=500      ! Maximum number of function calls
 ! Useful diagnostics and information
 REAL(SP),DIMENSION(SIZE(X0I))           :: GRADOPT         ! gradient at the optimum
 REAL(SP),DIMENSION(SIZE(X0I),SIZE(X0I)) :: HESSOPT         ! Hessian at optimum
@@ -199,17 +199,18 @@ SUBROUTINE OBJFUNC_WRAPPER_OPTI(dataIN,dataOUT,argInf,&
 ! Creator:
 ! --------
 ! Martyn Clark, 2009
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! --------
 ! Wrapper for the objective function used in DMSL optimization routines, based on the
 !  bateauDK_objFunc_opt wrapper coded by Dmitri Kavetski
-! Calls the SUBROUTINE fuse_rmse.f90 to calculate the RMSE for a given
-!  FUSE model and parameter set
+! Calls the SUBROUTINE fuse_metric.f90 to calculate the metric chosen as objective function 
+!  for a given FUSE model and parameter set
 ! ---------------------------------------------------------------------------------------
 use kinds_dmsl_kit                       ! numeric kind definitions
 use types_dmsl_kit,only:data_ricz_type   ! data types (dataIN,dataOUT; not actually used)
-use fuse_rmse_module,only:fuse_rmse      ! provide access to fuse_rmse (run model)
+use fuse_metric_module,only:fuse_metric  ! provide access to fuse_metric (run model)
 use multiparam,only:lparam,paratt,numpar ! provide access to the FUSE model parameter structures
 use multistats,only:fcount               ! provide access to the number of function evaluations
 use getpar_str_module                    ! provide access to getpar_str (get parameter metadata)
@@ -243,7 +244,7 @@ do ipar=1,numpar
 end do  ! looping through parameters
 ! calculate objective function and increment counter
 if (present(objFuncM) .and. feas) then
- call fuse_rmse(argInf,objFuncM,output_flag,mparam_flag)
+ call fuse_metric(argInf,objFuncM,output_flag,mparam_flag)
 endif
 if (present(objFuncM)) fcount = fcount+1
 !if (present(objFuncM)) write(*,'(i8,1x,20(f9.3,1x))') fcount,objFuncM,argInf
@@ -262,16 +263,17 @@ SUBROUTINE OBJFUNC_WRAPPER_MCMC(dataIN,dataOUT,x,&
 ! Creator:
 ! --------
 ! Martyn Clark, 2009
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! --------
 ! Wrapper for the objective function used in DMSL MCMC routines, based on the
 !  bateauDK_objFunc_opt wrapper coded by Dmitri Kavetski
-! Calls the SUBROUTINE fuse_rmse.f90 to calculate the RMSE for a given
-!  FUSE model and parameter set
+! Calls the SUBROUTINE fuse_metric.f90 to calculate the metric chosen as objective function 
+!  for a given FUSE model and parameter set
 ! ---------------------------------------------------------------------------------------
 ! FUSE modules
-use fuse_rmse_module,only:fuse_rmse      ! provide access to fuse_rmse (run model)
+use fuse_metric_module,only:fuse_metric        ! provide access to fuse_metric (run model)
 use multiforce,only:istart,numtim,aforce ! start+count of the calibration period; forcing data
 use multiparam,only:lparam,paratt,numpar ! provide access to the FUSE model parameter structures
 use multiroute,only:aroute               ! provide access to the FUSE simulated runoff
@@ -296,7 +298,7 @@ integer(mik)::itim                    ! loop through calibration period
 type(paratt)::param_meta              ! parameter metadata
 logical(mlk)::output_flag             ! switch to write model output
 logical(mlk)::mparam_flag             ! switch to turn off writing of parameters and statistics
-real(mrk)   ::rmse                    ! root mean squared error
+real(mrk)   ::metric_val              ! value of the metric chosen as objective function
 real(mrk),dimension(:),allocatable :: resd ! individual residuals
 real(mrk),dimension(:),allocatable :: dens ! log-density of individual residuals
 real(mrk)::VAR
@@ -322,7 +324,7 @@ endif
 ! calculate objective function and increment counter
 if (present(logp) .and. feas) then
  VAR=10._mrk**x(0)
- call fuse_rmse(x(1:),rmse,output_flag,mparam_flag)
+ call fuse_metric(x(1:),metric_val,output_flag,mparam_flag)
  ! allocate space for log-density of individual residuals
  allocate(resd(istart:numtim),dens(istart:numtim), stat=err)
  if (err.ne.0) then; err=-20; message='problem allocating space for dens'; return; endif

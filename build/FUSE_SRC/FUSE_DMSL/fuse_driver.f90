@@ -5,6 +5,7 @@ PROGRAM DISTRIBUTED_DRIVER
 ! Modified by Brian Henn to include snow model, 6/2013
 ! Modified by Nans Addor to include distributed modeling, 9/2016
 ! Modified by Nans Addor to re-enable catchment-scale modeling, 4/2017
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program to run FUSE with a snow module as either at the catchment-scale or
@@ -70,7 +71,7 @@ USE time_io
 USE model_numerix                                         ! defines decisions on model numerix
 
 ! access to model simulation modules
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                    ! run model and compute the metric chosen as objective function
 
 #ifdef __MPI__
 use mpi
@@ -125,7 +126,7 @@ REAL(SP), DIMENSION(:), ALLOCATABLE    :: BU      ! vector of upper parameter bo
 REAL(SP), DIMENSION(:), ALLOCATABLE    :: APAR    ! model parameter set
 INTEGER(KIND=4)                        :: ISEED   ! seed for the random sequence
 REAL(KIND=4),DIMENSION(:), ALLOCATABLE :: URAND   ! vector of quasi-random numbers U[0,1]
-REAL(SP)                               :: RMSE    ! error from the simulation
+REAL(SP)                               :: METRIC_VAL     ! error from the simulation
 
 ! ---------------------------------------------------------------------------------------
 ! SCE VARIABLES
@@ -366,7 +367,7 @@ ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
   NUMPSET=1.2*MAXN         ! will be used to define the parameter set dimension of the NetCDF files
                            ! using 1.2MAXN since the final number of parameter sets produced by SCE is unknown
 
-ELSE IF(fuse_mode == 'run_best')THEN  ! run FUSE with best (lowest RMSE) parameter set from a previous SCE calibration
+ELSE IF(fuse_mode == 'run_best')THEN  ! run FUSE with "best" parameter set from a previous SCE calibration
 
   ! file from which SCE parameters will be loaded - same as FNAME_NETCDF_PARA above
   FNAME_NETCDF_PARA_SCE = TRIM(OUTPUT_PATH)//TRIM(dom_id)//'_'//TRIM(FMODEL_ID)//'_para_sce.nc'
@@ -407,7 +408,7 @@ IF(fuse_mode == 'run_def')THEN ! run FUSE with default parameter values
   OUTPUT_FLAG=.TRUE.
 
   print *, 'Running FUSE with default parameter values'
-  CALL FUSE_RMSE(APAR,GRID_FLAG,NCID_FORC,RMSE,OUTPUT_FLAG,NUMPSET)
+  CALL FUSE_METRIC(APAR,GRID_FLAG,NCID_FORC,METRIC_VAL,OUTPUT_FLAG,NUMPSET)
   print *, 'Done running FUSE with default parameter values'
 
 ELSE IF(fuse_mode == 'run_pre')THEN ! run FUSE with pre-defined parameter values
@@ -424,7 +425,7 @@ ELSE IF(fuse_mode == 'run_pre')THEN ! run FUSE with pre-defined parameter values
     CALL GET_PRE_PARAM(FNAME_NETCDF_PARA_PRE,1,ONEMOD,NUMPAR,APAR)
 
     print *, 'Running FUSE with pre-defined parameter set'
-    CALL FUSE_RMSE(APAR,GRID_FLAG,NCID_FORC,RMSE,OUTPUT_FLAG,IPSET)
+    CALL FUSE_METRIC(APAR,GRID_FLAG,NCID_FORC,METRIC_VAL,OUTPUT_FLAG,IPSET)
     print *, 'Done running FUSE with pre-defined parameter set'
 
   end do
@@ -466,7 +467,7 @@ ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
 
   !PRINT *, 'Done calling the function again with the optimized parameter set!'
 
-ELSE IF(fuse_mode == 'run_best')THEN ! run FUSE with best (lowest RMSE) parameter set from a previous SCE calibration
+ELSE IF(fuse_mode == 'run_best')THEN ! run FUSE with "best" parameter set from a previous SCE calibration
 
   OUTPUT_FLAG=.TRUE.
 
@@ -474,7 +475,7 @@ ELSE IF(fuse_mode == 'run_best')THEN ! run FUSE with best (lowest RMSE) paramete
   CALL GET_SCE_PARAM(FNAME_NETCDF_PARA_SCE,ONEMOD,NUMPAR,APAR)
 
   print *, 'Running FUSE with best SCE parameter set'
-  CALL FUSE_RMSE(APAR,GRID_FLAG,NCID_FORC,RMSE,OUTPUT_FLAG,NUMPSET)
+  CALL FUSE_METRIC(APAR,GRID_FLAG,NCID_FORC,METRIC_VAL,OUTPUT_FLAG,NUMPSET)
   print *, 'Done running FUSE with best SCE parameter set'
 
 ELSE

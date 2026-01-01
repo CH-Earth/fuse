@@ -2,6 +2,7 @@ PROGRAM NITER_TEST__DRIVER
 ! ---------------------------------------------------------------------------------------
 ! Creator:
 ! Martyn Clark, 2009
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program to assess the number of function evaluations taken in four different
@@ -26,7 +27,7 @@ USE par_insert_module                                     ! inserts model parame
 ! model numerix
 USE model_numerix                                         ! defines decisions on model numerix
 ! access to model simulation modules
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                    ! run model and compute the metric chosen as objective function
 IMPLICIT NONE
 ! ---------------------------------------------------------------------------------------
 ! (0) GET COMMAND-LINE ARGUMENTS...
@@ -61,7 +62,7 @@ REAL(KIND=4),DIMENSION(:), ALLOCATABLE :: URAND   ! vector of quasi-random numbe
 INTEGER(I4B)                           :: IPSET   ! (looping)
 INTEGER(I4B)                           :: IJAC    ! (looping)
 INTEGER(I4B)                           :: ISCH    ! (looping)
-REAL(SP)                               :: RMSE    ! error from the simulation
+REAL(SP)                               :: METRIC_VAL     ! error from the simulation
 ! ---------------------------------------------------------------------------------------
 ! (0) READ COMMAND LINE ARGUMENTS
 ! ---------------------------------------------------------------------------------------
@@ -125,12 +126,12 @@ DO IPSET=963,963+NUMPSET-1
  APAR = BL + URAND*(BU-BL)
  ! base run with fully-variable Jacobian
  JAC_RECOMPUTE = FULLYVARIABLE
- CALL FUSE_RMSE(APAR,RMSE,OUTPUT_FLAG)
+ CALL FUSE_METRIC(APAR,METRIC_VAL,OUTPUT_FLAG)
  ! try freezing the Jacobian once we get "sufficiently close" to the solution
  JAC_RECOMPUTE = PERIOD_FREEZE
  DO IJAC=0,10,2
   THRESH_FRZE = 1. * 10.**-REAL(IJAC, KIND(SP))
-  !CALL FUSE_RMSE(APAR,RMSE,OUTPUT_FLAG)
+  !CALL FUSE_METRIC(APAR,METRIC_VAL,OUTPUT_FLAG)
  END DO  ! (loop through different numerix parameter combinations)
  print *, '**********'
  ! try only re-computing Jacobian if don't get sufficiently large decrease
@@ -139,7 +140,7 @@ DO IPSET=963,963+NUMPSET-1
  DO IJAC=10,10,2
   THRESH_FRZE = REAL(IJAC, KIND(SP))/10._sp
   print *, THRESH_FRZE
-  CALL FUSE_RMSE(APAR,RMSE,OUTPUT_FLAG)
+  CALL FUSE_METRIC(APAR,METRIC_VAL,OUTPUT_FLAG)
  END DO  ! (loop through different numerix parameter combinations)
 END DO  ! (loop through different parameter sets)
 ! and, deallocate space

@@ -108,8 +108,8 @@ SUBROUTINE DEF_OUTPUT(nSpat1,nSpat2,NPSET,NTIM)
       !IF (TRIM(VNAME(IVAR)).EQ.'obsq')     WRITE_VAR=.TRUE.
       !IF (TRIM(VNAME(IVAR)).EQ.'evap_1')   WRITE_VAR=.TRUE.
       !IF (TRIM(VNAME(IVAR)).EQ.'evap_2')   WRITE_VAR=.TRUE.
-      IF (TRIM(VNAME(IVAR)).EQ.'q_instnt') WRITE_VAR=.TRUE.
-      !IF (TRIM(VNAME(IVAR)).EQ.'q_routed') WRITE_VAR=.TRUE.
+      !IF (TRIM(VNAME(IVAR)).EQ.'q_instnt') WRITE_VAR=.TRUE.
+      IF (TRIM(VNAME(IVAR)).EQ.'q_routed') WRITE_VAR=.TRUE.
       !IF (TRIM(VNAME(IVAR)).EQ.'watr_1')   WRITE_VAR=.TRUE.
       !IF (TRIM(VNAME(IVAR)).EQ.'watr_2')   WRITE_VAR=.TRUE.
       !IF (TRIM(VNAME(IVAR)).EQ.'swe_tot')  WRITE_VAR=.TRUE.
@@ -141,23 +141,23 @@ SUBROUTINE DEF_OUTPUT(nSpat1,nSpat2,NPSET,NTIM)
   END DO  ! ivar
 
   ! define the time variable
-  ierr = nf_def_var(ncid_out,'time',nf_real,1,ntim_dim,ivar_id); call handle_err(ierr)
+  ierr = nf_def_var(ncid_out,'time',nf_real,1,(/ntim_dim/),ivar_id); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'units',len_trim(timeUnits),trim(timeUnits))
   call handle_err(ierr)
 
   ! define the latitude variable
-  ierr = nf_def_var(ncid_out,'latitude',nf_real,1,lat_dim,ivar_id); call handle_err(ierr)
+  ierr = nf_def_var(ncid_out,'latitude',nf_real,1,(/lat_dim/),ivar_id); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'units',8,'degreesN'); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'axis',1,'Y'); call handle_err(ierr)
 
   ! define the longitude variable
-  ierr = nf_def_var(ncid_out,'longitude',nf_real,1,lon_dim,ivar_id); call handle_err(ierr)
+  ierr = nf_def_var(ncid_out,'longitude',nf_real,1,(/lon_dim/),ivar_id); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'units',8,'degreesE'); call handle_err(ierr)
   ierr = nf_put_att_text(ncid_out,ivar_id,'axis',1,'X'); call handle_err(ierr)
 
   IF(.NOT.GRID_FLAG)THEN
     ! define the param_set variable
-    ierr = nf_def_var(ncid_out,'param_set',nf_char,1,param_dim,ivar_id); call handle_err(ierr)
+    ierr = nf_def_var(ncid_out,'param_set',nf_char,1,(/param_dim/),ivar_id); call handle_err(ierr)
     ierr = nf_put_att_text(ncid_out,ivar_id,'units',1,'-'); call handle_err(ierr)
   ENDIF
 

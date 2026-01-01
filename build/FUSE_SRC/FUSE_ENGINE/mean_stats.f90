@@ -4,6 +4,7 @@ SUBROUTINE MEAN_STATS()
 ! --------
 ! Martyn Clark, 2007
 ! Modified by Nans Addor to deal with NA values in QOBS, 2016
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! --------
@@ -14,6 +15,8 @@ SUBROUTINE MEAN_STATS()
 ! MODULE multistats -- summary statistics stored in MODULE multistats
 ! ---------------------------------------------------------------------------------------
 USE nrtype                                            ! variable types, etc.
+USE metrics                                           ! available metrics and transformations
+USE fuse_fileManager,only:METRIC, TRANSFO             ! metric and transformation requested in the filemanager
 ! FUSE modules
 USE multiforce                                        ! model forcing data (obs streamflow)
 USE multiroute                                        ! routed runoff
@@ -44,7 +47,7 @@ REAL(SP)                               :: SS_LOBS     ! sum of squared lagged di
 REAL(SP)                               :: SS_LSIM     ! sum of squared lagged differences in simulated runoff
 REAL(SP)                               :: SS_RAW      ! sum of squared differences in observed - simulated
 REAL(SP)                               :: SS_LOG      ! sum of squared differences in LOG observed - LOG simulated
-REAL(SP), PARAMETER                    :: NO_ZERO=1.E-20  ! avoid divide by zero
+REAL(SP)                               :: NO_ZERO     ! avoid divide by zero
 
 ! ---------------------------------------------------------------------------------------
 ! (1) PRELIMINARIES
@@ -73,22 +76,29 @@ IF (NUM_AVAIL.EQ.0) THEN
   PRINT *, 'Skiping computation of error statistics because no observed streamflow data'
   MSTATS%NASH_SUTT=-9999
   MSTATS%RAW_RMSE=-9999
+  MSTATS%KGE=-9999
+  MSTATS%METRIC_VAL=-9999
 
 ELSE
 
   ! extract elements from QOBS and QSIM for time steps with QOBS available
   ALLOCATE(QOBS_AVAIL(NUM_AVAIL),QSIM_AVAIL(NUM_AVAIL),DOBS(NUM_AVAIL),DSIM(NUM_AVAIL),RAWD(NUM_AVAIL),LOGD(NUM_AVAIL),STAT=IERR)
+  IF (IERR /= 0) STOP ' PROBLEM ALLOCATING SPACE FOR AVAILABLE DATA IN MEAN_STATS.F90 '
 
+  
   QOBS_AVAIL=PACK(QOBS,QOBS_MASK,QOBS_AVAIL)  ! moves QOBS time steps indicated by QOBS_MASK to QOBS_AVAIL,
   											                      ! if no values is missing (i.e. NS = NUM_AVAIL) then QOBS_AVAIL
   											                      ! should be a copy of QOBS
   QSIM_AVAIL=PACK(QSIM,QOBS_MASK,QSIM_AVAIL)  ! moves QSIM time steps indicated by QOBS_MASK to QSIM_AVAIL
   											                      ! if no values is missing (i.e. NS = NUM_AVAIL) then QSIM_AVAIL
   										                      	! should be a copy of QSIM
-                                              
+                                                                 
   ! compute mean
-  XB_OBS = SUM(QOBS_AVAIL(:)) / REAL(NUM_AVAIL, KIND(SP))
-  XB_SIM = SUM(QSIM_AVAIL(:)) / REAL(NUM_AVAIL, KIND(SP))
+  XB_OBS  = SUM(QOBS_AVAIL(:)) / INT(NUM_AVAIL, KIND(SP))
+  XB_SIM  = SUM(QSIM_AVAIL(:)) / INT(NUM_AVAIL, KIND(SP))
+  
+  ! define NO_ZERO as 1% of the observed mean flow
+  NO_ZERO = XB_OBS/100
 
   ! compute the sum of squares of simulated and observed vectors
   DOBS(:) = QOBS_AVAIL(:) - XB_OBS
@@ -104,6 +114,8 @@ ELSE
   LOGD(:) = LOG(QSIM_AVAIL(:)+NO_ZERO) - LOG(QOBS_AVAIL(:)+NO_ZERO)
   SS_RAW  = DOT_PRODUCT(RAWD,RAWD)  ! = SUM( RAWD(:)*RAWD(:) )
   SS_LOG  = DOT_PRODUCT(LOGD,LOGD)  ! = SUM( LOGD(:)*LOGD(:) )
+  
+  
 
   ! ---------------------------------------------------------------------------------------
   ! (2) COMPUTE ERROR STATISTICS
@@ -112,26 +124,58 @@ ELSE
   MSTATS%QOBS_MEAN = XB_OBS
   MSTATS%QSIM_MEAN = XB_SIM
   ! compute the coefficient of variation
-  MSTATS%QOBS_CVAR = SQRT( SS_OBS / REAL(NUM_AVAIL-1, KIND(SP)) ) / (XB_OBS+NO_ZERO)
-  MSTATS%QSIM_CVAR = SQRT( SS_SIM / REAL(NUM_AVAIL-1, KIND(SP)) ) / (XB_SIM+NO_ZERO)
+  MSTATS%QOBS_CVAR = SQRT( SS_OBS / INT(NUM_AVAIL-1, KIND(SP)) ) / (XB_OBS+NO_ZERO)
+  MSTATS%QSIM_CVAR = SQRT( SS_SIM / INT(NUM_AVAIL-1, KIND(SP)) ) / (XB_SIM+NO_ZERO)
   ! compute the lag-1 correlation coefficient
   MSTATS%QOBS_LAG1 = SS_LOBS / (SQRT(SS_OBS*SS_OBS)+NO_ZERO)
   MSTATS%QSIM_LAG1 = SS_LSIM / (SQRT(SS_SIM*SS_SIM)+NO_ZERO)
-  ! compute the root-mean-squared-error of flow
-  MSTATS%RAW_RMSE  = SQRT( SS_RAW / REAL(NUM_AVAIL, KIND(SP)) )
-  ! compute the root-mean-squared-error of LOG flow
-  MSTATS%LOG_RMSE  = SQRT( SS_LOG / REAL(NUM_AVAIL, KIND(SP)) )
-  ! compute the Nash-Sutcliffe score
-  MSTATS%NASH_SUTT = 1. - SS_RAW/(SS_OBS+NO_ZERO)
+  
+  ! Compute RMSE using the metrics module
+  MSTATS%RAW_RMSE = get_RMSE(QOBS_AVAIL, QSIM_AVAIL, '1')   ! No transformation
+    
+  ! Compute log RMSE using the metrics module
+  MSTATS%LOG_RMSE = get_RMSE(QOBS_AVAIL, QSIM_AVAIL, 'log') ! Log transformation
 
+  ! Compute NSE using the metrics module
+  MSTATS%NASH_SUTT = get_NSE(QOBS_AVAIL, QSIM_AVAIL, '1')   ! No transformation
+  
+  ! Compute KGE using the metrics module
+  MSTATS%KGE = get_KGE(QOBS_AVAIL, QSIM_AVAIL, '1')         ! No transformation
+
+  ! Compute KGEp using the metrics module
+  MSTATS%KGEP = get_KGEP(QOBS_AVAIL, QSIM_AVAIL, '1')       ! No transformation
+  
+  ! Compute MAE using the metrics module
+  MSTATS%MAE = get_MAE(QOBS_AVAIL, QSIM_AVAIL, '1')         ! No transformation
+  
+  ! Compute the metric chosen as objective function using the metrics module
+  
+  IF (METRIC == "KGE") THEN
+    MSTATS%METRIC_VAL = get_KGE(QOBS_AVAIL, QSIM_AVAIL, TRANSFO) 
+  ELSE IF (METRIC == "KGEP") THEN
+    MSTATS%METRIC_VAL = get_KGEP(QOBS_AVAIL, QSIM_AVAIL, TRANSFO) 
+  ELSE IF (METRIC == "NSE") THEN
+    MSTATS%METRIC_VAL = get_NSE(QOBS_AVAIL, QSIM_AVAIL, TRANSFO) 
+  ELSE IF (METRIC == "RMSE") THEN
+    MSTATS%METRIC_VAL = get_RMSE(QOBS_AVAIL, QSIM_AVAIL, TRANSFO) 
+  ELSE IF (METRIC == "MAE") THEN
+    MSTATS%METRIC_VAL = get_MAE(QOBS_AVAIL, QSIM_AVAIL, TRANSFO) 
+  ELSE
+    STOP 'The requested metric is not available in metrics module'
+  END IF
   ! ---------------------------------------------------------------------------------------
   DEALLOCATE(QOBS,QOBS_AVAIL,QSIM,QSIM_AVAIL,DOBS,DSIM,RAWD,LOGD,STAT=IERR)
   IF (IERR.NE.0) STOP ' PROBLEM DEALLOCATING SPACE IN MEAN_STATS.F90 '
 
 END IF
 
-PRINT *, 'NSE = ', MSTATS%NASH_SUTT
-PRINT *, 'RAW_RMSE = ', MSTATS%RAW_RMSE
+PRINT *, 'NSE = ',          MSTATS%NASH_SUTT
+PRINT *, 'KGE = ',          MSTATS%KGE
+PRINT *, 'KGEP = ',         MSTATS%KGEP
+PRINT *, 'MAE = ',          MSTATS%MAE
+PRINT *, 'RAW_RMSE = ',     MSTATS%RAW_RMSE
+PRINT *, 'LOG_RMSE = ',     MSTATS%LOG_RMSE
+PRINT *, 'METRIC_VAL [Metric:',METRIC,' / Transfo:',TRANSFO,'] =',   MSTATS%METRIC_VAL
 
 ! ---------------------------------------------------------------------------------------
 ! (3§) COMPUTE STATISTICS ON NUMERICAL ACCURACY AND EFFICIENCY

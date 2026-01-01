@@ -1,7 +1,7 @@
-MODULE FUSE_RMSE_MODULE
+MODULE FUSE_METRIC_MODULE
   IMPLICIT NONE
   CONTAINS
-  SUBROUTINE FUSE_RMSE(XPAR,GRID_FLAG,NCID_FORC,RMSE,OUTPUT_FLAG,IPSET,MPARAM_FLAG)
+  SUBROUTINE FUSE_METRIC(XPAR,GRID_FLAG,NCID_FORC,METRIC_VAL,OUTPUT_FLAG,IPSET,MPARAM_FLAG)
 
     ! ---------------------------------------------------------------------------------------
     ! Creator:
@@ -9,12 +9,13 @@ MODULE FUSE_RMSE_MODULE
     ! Martyn Clark, 2009
     ! Modified by Brian Henn to include snow model, 6/2013
     ! Modified by Nans Addor to enable grid-based modeling, 9/2016
+    ! Modified by Cyril Thébault to allow different metrics as objective function, 2024
     ! ---------------------------------------------------------------------------------------
     ! Purpose:
     ! --------
-    ! Calculate the RMSE for single FUSE model and single parameter set
+    ! Calculate the metric chosen as objective function for single FUSE model and single parameter set
     !   input: model parameter set
-    !   output: root mean squared error
+    !   output: metric chosen as objective function
     ! ---------------------------------------------------------------------------------------
 
     USE nrtype                                               ! variable types, etc.
@@ -70,7 +71,7 @@ MODULE FUSE_RMSE_MODULE
     LOGICAL(LGT), INTENT(IN), OPTIONAL     :: MPARAM_FLAG    ! .FALSE. (used to turn off writing statistics)
 
     ! output
-    REAL(SP),INTENT(OUT)                   :: RMSE           ! root mean squared error
+    REAL(SP),INTENT(OUT)                   :: METRIC_VAL     ! value of the metric chosen as objective function
 
     ! internal
     LOGICAL(lgt),PARAMETER                 :: computePET=.FALSE. ! flag to compute PET
@@ -96,7 +97,7 @@ MODULE FUSE_RMSE_MODULE
     ! ---------------------------------------------------------------------------------------
     ! allocate state vectors
     ALLOCATE(STATE0(NSTATE),STATE1(NSTATE),STAT=IERR)
-    IF (IERR.NE.0) STOP ' problem allocating space for state vectors in fuse_rmse '
+    IF (IERR.NE.0) STOP ' problem allocating space for state vectors in fuse_metric '
 
     ! increment parameter counter for model output
     IF (.NOT.PRESENT(MPARAM_FLAG)) THEN
@@ -241,13 +242,16 @@ MODULE FUSE_RMSE_MODULE
                CASE(iopt_no_snowmod)
                   CALL QRAINERROR()
                CASE DEFAULT
-                  message="f-fuse_rmse/SMODL%iSNOWM must be either iopt_temp_index or iopt_no_snowmod"
+                  message="f-fuse_metric/SMODL%iSNOWM must be either iopt_temp_index or iopt_no_snowmod"
                   RETURN
                END SELECT
 
                ! temporally integrate the ordinary differential equations
                CALL ODE_INT(FUSE_SOLVE,STATE0,STATE1,DT_SUB,DT_FULL,IERR,MESSAGE)
-               IF (IERR.NE.0) THEN; PRINT *, TRIM(MESSAGE); PAUSE; ENDIF
+               IF (IERR.NE.0) THEN 
+                 PRINT *, TRIM(MESSAGE)
+                 !PAUSE
+               ENDIF
 
               ! perform overland flow routing
               CALL Q_OVERLAND()
@@ -351,7 +355,7 @@ MODULE FUSE_RMSE_MODULE
 
       PRINT *, 'Calculating performance metrics...'
       CALL MEAN_STATS()
-      RMSE = MSTATS%RAW_RMSE
+      METRIC_VAL = MSTATS%METRIC_VAL
 
     ENDIF
 
@@ -361,8 +365,8 @@ MODULE FUSE_RMSE_MODULE
     CALL PUT_SSTATS(PCOUNT)
 
     ! deallocate vectors
-    DEALLOCATE(W_FLUX_3d); IF (IERR.NE.0) STOP ' problem deallocating W_FLUX_3d in fuse_rmse '
-    DEALLOCATE(STATE0,STATE1,STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating state vectors in fuse_rmse '
+    DEALLOCATE(W_FLUX_3d); IF (IERR.NE.0) STOP ' problem deallocating W_FLUX_3d in fuse_metric '
+    DEALLOCATE(STATE0,STATE1,STAT=IERR); IF (IERR.NE.0) STOP ' problem deallocating state vectors in fuse_metric'
 
-  END SUBROUTINE FUSE_RMSE
-END MODULE FUSE_RMSE_MODULE
+  END SUBROUTINE FUSE_METRIC
+END MODULE FUSE_METRIC_MODULE

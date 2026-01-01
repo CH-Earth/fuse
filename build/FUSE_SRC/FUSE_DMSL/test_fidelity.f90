@@ -2,6 +2,7 @@ PROGRAM TEST_FIDELITY
 ! ---------------------------------------------------------------------------------------
 ! Creator:
 ! Martyn Clark, 2009
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program to test the fidelity of the different numerical methods
@@ -21,7 +22,7 @@ USE par_insert_module                                     ! inserts model parame
 ! model numerix
 USE model_numerix                                         ! defines decisions on model numerix
 ! access to model simulation modules
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                    ! run model and compute the metric chosen as objective function
 IMPLICIT NONE
 ! ---------------------------------------------------------------------------------------
 ! (0) GET COMMAND-LINE ARGUMENTS...
@@ -146,7 +147,7 @@ DO
  DO IDEL=1,100
   DELTIM = REAL(IDEL,KIND(SP))/100._SP
   ! run model with example parameter sets
-  CALL FUSE_RMSE(XDF,FPAR,OUTPUT_FLAG)
+  CALL FUSE_METRIC(XDF,FPAR,OUTPUT_FLAG)
  END DO
 END DO  ! looping through example parameter sets
 DEALLOCATE(XDF, STAT=IERR)

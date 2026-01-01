@@ -3,6 +3,7 @@ MODULE meta_stats
 ! Creator:
 ! --------
 ! Martyn Clark, 2007
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! --------
@@ -34,6 +35,12 @@ I=I+1; XNAME(I)='qsim_lag1  '; XDESC(I)='lag-1 correlation of simulated runoff  
 I=I+1; XNAME(I)='raw_rmse   '; XDESC(I)='root-mean-squared-error of flow                    '; XUNIT(I)='mm timestep-1'
 I=I+1; XNAME(I)='log_rmse   '; XDESC(I)='root-mean-squared-error of LOG flow                '; XUNIT(I)='mm timestep-1'
 I=I+1; XNAME(I)='nash_sutt  '; XDESC(I)='Nash-Sutcliffe score                               '; XUNIT(I)='-            '
+I=I+1; XNAME(I)='kge        '; XDESC(I)='Kling-Gupta Efficiency score                       '; XUNIT(I)='-            '
+I=I+1; XNAME(I)='kgep       '; XDESC(I)='Kling-Gupta Efficiency prime score                 '; XUNIT(I)='-            '
+I=I+1; XNAME(I)='mae        '; XDESC(I)='mean absolute error                                '; XUNIT(I)='mm timestep-1'
+I=I+1; XNAME(I)='metric_val '; XDESC(I)='value of the metric chosen as objective function   '; XUNIT(I)='problem_depnt'
+
+
 ! attributes of model output
 I=I+1; XNAME(I)='numerx_rmse'; XDESC(I)='RMSE between exact and approximate solution        '; XUNIT(I)='mm timestep-1'
 I=I+1; XNAME(I)='mean_nfuncs'; XDESC(I)='mean number function evaluations                   '; XUNIT(I)='-            '

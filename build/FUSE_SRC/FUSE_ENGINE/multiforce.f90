@@ -4,6 +4,7 @@
 ! Martyn Clark
 ! Modified by Brian Henn to include snow model, 6/2013
 ! Modified by Nans Addor to enable distributed modeling, 9/2016
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 MODULE multiforce
   USE nrtype
@@ -66,8 +67,8 @@ MODULE multiforce
   INTEGER(i4b)                          :: itim_sim=-1               ! indice within numtim_sim
   INTEGER(i4b)                          :: itim_sub=-1               ! indice within numtim_sub
 
-  INTEGER(i4b)                          :: sim_beg=-1                ! index for the start of the simulation in fuse_rmse
-  INTEGER(i4b)                          :: sim_end=-1                ! index for the end of the simulation in fuse_rmse
+  INTEGER(i4b)                          :: sim_beg=-1                ! index for the start of the simulation in fuse_metric
+  INTEGER(i4b)                          :: sim_end=-1                ! index for the end of the simulation in fuse_metric
   INTEGER(i4b)                          :: eval_beg=-1               ! index for the start of evaluation period
   INTEGER(i4b)                          :: eval_end=-1               ! index for the end of the inference period
 

@@ -2,6 +2,7 @@ PROGRAM URS_DRIVER
 ! ---------------------------------------------------------------------------------------
 ! Creator:
 ! Martyn Clark, 2011
+! Modified by Cyril Thébault to allow different metrics as objective function, 2024
 ! ---------------------------------------------------------------------------------------
 ! Purpose:
 ! Driver program to perform multiple runs of a model by uniform random sampling from the
@@ -23,7 +24,7 @@ USE par_insert_module                                     ! inserts model parame
 ! model numerix
 USE model_numerix                                         ! defines decisions on model numerix
 ! access to model simulation modules
-USE fuse_rmse_module                                      ! run model and compute the root mean squared error
+USE fuse_metric_module                                      ! run model and compute the metric chosen as objective function
 IMPLICIT NONE
 ! ---------------------------------------------------------------------------------------
 ! (0) GET COMMAND-LINE ARGUMENTS...
@@ -63,7 +64,7 @@ REAL(SP), DIMENSION(:), ALLOCATABLE    :: BU      ! vector of upper parameter bo
 REAL(SP), DIMENSION(:), ALLOCATABLE    :: APAR    ! model parameter set
 INTEGER(KIND=4)                        :: ISEED   ! seed for the random sequence
 REAL(KIND=4),DIMENSION(:), ALLOCATABLE :: URAND   ! vector of quasi-random numbers U[0,1]
-REAL(SP)                               :: RMSE    ! error from the simulation
+REAL(SP)                               :: METRIC_VAL     ! error from the simulation
 ! ---------------------------------------------------------------------------------------
 ! (0) READ COMMAND LINE ARGUMENTS
 ! ---------------------------------------------------------------------------------------
@@ -164,7 +165,7 @@ DO IPSET=1,NUMPSET
  WRITE(*,'(I4,1X,12(E10.2,1X))') ISEED-1, URAND
  APAR = BL + URAND*(BU-BL)
  ! run zee model
- CALL FUSE_RMSE(APAR,RMSE,OUTPUT_FLAG)
+ CALL FUSE_METRIC(APAR,METRIC_VAL,OUTPUT_FLAG)
 END DO
 ! and, deallocate space
 DEALLOCATE(APAR,BL,BU,URAND)

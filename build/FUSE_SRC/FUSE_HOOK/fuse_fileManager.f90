@@ -3,6 +3,7 @@
 !******************************************************************
 ! Edited by Brian Henn to include snow model, 7/2013
 ! Edited by Nans Addor to set simulation and evaluation periods, 11/2017
+! Edited by Cyril Thébault to allow different metrics as objective function, 2024
 MODULE fuse_filemanager
 use kinds_dmsl_kit_FUSE,only:mik,mlk
 
@@ -35,10 +36,13 @@ CHARACTER(len=20)           :: date_end_sim      ! date end simulation
 CHARACTER(len=20)           :: date_start_eval   ! date start evaluation period
 CHARACTER(len=20)           :: date_end_eval     ! date end evaluation period
 CHARACTER(len=20)           :: numtim_sub_str    ! number of time steps of subperiod (will be kept in memory)
+! evaluation metrics and transformation
+CHARACTER(len=20)           :: METRIC            ! metric chosen as objective function
+CHARACTER(len=20)           :: TRANSFO           ! streamflow transformation
 ! SCE parameters
-CHARACTER(len=20)           :: KSTOP_str   ! number of shuffling loops the value must change by PCENTO
-CHARACTER(len=20)           :: MAXN_str    ! maximum number of trials before optimization is terminated
-CHARACTER(len=20)           :: PCENTO_str  ! the percentage
+CHARACTER(len=20)           :: KSTOP_str         ! number of shuffling loops the value must change by PCENTO
+CHARACTER(len=20)           :: MAXN_str          ! maximum number of trials before optimization is terminated
+CHARACTER(len=20)           :: PCENTO_str        ! the percentage
 
 !----------------------------------------------------
 contains
@@ -160,6 +164,9 @@ read(unt,*)date_start_eval
 read(unt,*)date_end_eval
 read(unt,*)numtim_sub_str
 read(unt,'(a)')temp
+read(unt,*)METRIC
+read(unt,*)TRANSFO
+read(unt,'(a)')temp
 read(unt,*)MAXN_STR
 read(unt,*)KSTOP_STR
 read(unt,*)PCENTO_STR
@@ -193,6 +200,10 @@ PRINT *, 'date_end_sim:', TRIM(date_end_sim)
 PRINT *, 'date_start_eval:', TRIM(date_start_eval)
 PRINT *, 'date_end_eval:', TRIM(date_end_eval)
 PRINT *, 'numtim_sub_str:', TRIM(numtim_sub_str)
+
+PRINT *, 'Metrics and transformations defined in file manager:'
+PRINT *, 'METRIC:', TRIM(METRIC)
+PRINT *, 'TRANSFO:', TRIM(TRANSFO)
 
 ! End procedure here
 endsubroutine fuse_SetDirsUndPhiles
