@@ -2,21 +2,23 @@
 # Makefile to compile FUSE
 #========================================================================
 
+.DEFAULT_GOAL := all
+
 #========================================================================
 # PART 0: Define directory paths
 #========================================================================
 
 # Define core directory below which everything resides
-F_MASTER = $(CURDIR)/../
+FUSE_ROOT = $(abspath $(CURDIR)/..)
 
 # Core directory that contains FUSE source code
-F_KORE_DIR = $(F_MASTER)build/FUSE_SRC/
+FUSE_SOURCE_DIR = $(FUSE_ROOT)/build/FUSE_SRC/
 
 # Location of the compiled modules
-MOD_PATH = $(F_MASTER)build/
+MOD_PATH = $(FUSE_ROOT)/build/
 
 # Define the directory for the executables
-EXE_PATH = $(F_MASTER)bin/
+EXE_PATH = $(FUSE_ROOT)/bin/
 
 #========================================================================
 # PART 1: Define the libraries, driver programs, and executables
@@ -101,13 +103,13 @@ DRIVER_EX = fuse.exe
 #========================================================================
 
 # Define directories
-NUMREC_DIR = $(F_KORE_DIR)FUSE_NR
-HOOKUP_DIR = $(F_KORE_DIR)FUSE_HOOK
-DRIVER_DIR = $(F_KORE_DIR)FUSE_DMSL
-NETCDF_DIR = $(F_KORE_DIR)FUSE_NETCDF
-ENGINE_DIR = $(F_KORE_DIR)FUSE_ENGINE
-SCE_DIR    = $(F_KORE_DIR)FUSE_SCE
-TIME_DIR   = $(F_KORE_DIR)FUSE_TIME
+NUMREC_DIR = $(FUSE_SOURCE_DIR)FUSE_NR
+HOOKUP_DIR = $(FUSE_SOURCE_DIR)FUSE_HOOK
+DRIVER_DIR = $(FUSE_SOURCE_DIR)FUSE_DMSL
+NETCDF_DIR = $(FUSE_SOURCE_DIR)FUSE_NETCDF
+ENGINE_DIR = $(FUSE_SOURCE_DIR)FUSE_ENGINE
+SCE_DIR    = $(FUSE_SOURCE_DIR)FUSE_SCE
+TIME_DIR   = $(FUSE_SOURCE_DIR)FUSE_TIME
 
 # Utility modules
 FUSE_UTILMS= \
@@ -281,13 +283,13 @@ FUSE_ALL = \
 # Define flags based on specified compiler
 ifeq ($(FC),ifort)
   FFLAGS_NORMA = -O3 -FR -auto -fltconsistency -fpe0 -fpp
-  FFLAGS_DEBUG = -O0 -p -g -debug -warn all -check all -FR -auto -WB -traceback -fltconsistency -fpe0 -fpp
+  FFLAGS_DEBUG = -O0 -g -debug -warn all -check all -FR -auto -WB -traceback -fltconsistency -fpe0 -fpp
   FFLAGS_FIXED = -O2 -c -fixed
 endif
 
 ifeq ($(FC),gfortran)
   FFLAGS_NORMA = -O3 -ffree-line-length-none -fmax-errors=0 -cpp
-  FFLAGS_DEBUG = -p -g -Wall -ffree-line-length-none -fmax-errors=0 -fbacktrace -fcheck=bounds -cpp
+  FFLAGS_DEBUG = -g -Wall -ffree-line-length-none -fmax-errors=0 -fbacktrace -fcheck=bounds -cpp
   FFLAGS_FIXED = -O2 -c -ffixed-form
 endif
 
@@ -348,8 +350,6 @@ install:
 	mkdir -p $(EXE_PATH)
 	mv $(DRIVER_EX) $(EXE_PATH)
 
-# describe how to compile SCE code written in Fortran 77
-sce_16plus.o: $(SCE_DIR)/sce_16plus.f
-	$(FC) $(FFLAGS_FIXED) -c $(SCE_DIR)/sce_16plus.f
+.PHONY: all compile install clean debug
 
 .PHONY: debug
