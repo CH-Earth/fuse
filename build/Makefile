@@ -5,7 +5,7 @@
 .DEFAULT_GOAL := all
 
 #========================================================================
-# PART 0: Define directory paths
+# Define directory paths
 #========================================================================
 
 # Define core directory below which everything resides
@@ -21,7 +21,35 @@ MOD_PATH = $(FUSE_ROOT)/build/
 EXE_PATH = $(FUSE_ROOT)/bin/
 
 #========================================================================
-# PART 1: Define the libraries, driver programs, and executables
+# Define an include file (fuseversion.inc) with version info
+#========================================================================
+
+GENINC      := $(FUSE_ROOT)/build/generated
+VERSIONFILE := $(GENINC)/fuseversion.inc
+
+VERSION    := $(shell git -C $(FUSE_ROOT) describe --tags --abbrev=0 2>/dev/null || echo "no-tag")
+BUILDTIME  := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+GITBRANCH  := $(shell git -C $(FUSE_ROOT) rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
+GITHASH    := $(shell git -C $(FUSE_ROOT) rev-parse HEAD 2>/dev/null || echo "unknown")
+
+$(GENINC):
+	@mkdir -p $@
+
+$(VERSIONFILE): | $(GENINC)
+	@{ \
+	  echo "! Auto-generated: do not edit"; \
+	  echo "integer, parameter :: FUSE_VERSION_LEN = 64"; \
+	  echo "integer, parameter :: FUSE_BUILDTIME_LEN = 32"; \
+	  echo "integer, parameter :: FUSE_GITBRANCH_LEN = 64"; \
+	  echo "integer, parameter :: FUSE_GITHASH_LEN = 64"; \
+	  printf "character(len=FUSE_VERSION_LEN),   parameter :: FUSE_VERSION    = '%s'\n" "$(VERSION)"; \
+	  printf "character(len=FUSE_BUILDTIME_LEN), parameter :: FUSE_BUILDTIME  = '%s'\n" "$(BUILDTIME)"; \
+	  printf "character(len=FUSE_GITBRANCH_LEN), parameter :: FUSE_GITBRANCH  = '%s'\n" "$(GITBRANCH)"; \
+	  printf "character(len=FUSE_GITHASH_LEN),   parameter :: FUSE_GITHASH    = '%s'\n" "$(GITHASH)"; \
+	} > $@
+
+#========================================================================
+# Define the libraries, driver programs, and executables
 #========================================================================
 
 # default Fortran compiler is set to `gfortran`
@@ -88,7 +116,7 @@ $(info INCLUDES are $(INCLUDES))
 $(info LIBS are $(LIBS))
 
 #========================================================================
-# PART 2: Assemble all of the FUSE sub-routines
+# Assemble all of the FUSE sub-routines
 #========================================================================
 
 # Define directories
@@ -135,7 +163,7 @@ FUSE_DATAMS =
 FUSE_DATAMS += model_defn.f90
 #FUSE_DATAMS += data_types.f90
 FUSE_DATAMS += model_defnames.f90
-#FUSE_DATAMS += globaldata.f90
+FUSE_DATAMS += globaldata.f90
 FUSE_DATAMS += multiconst.f90
 FUSE_DATAMS += multiforce.f90
 FUSE_DATAMS += multibands.f90
@@ -300,9 +328,9 @@ FUSE_ALL += $(RUNTIME)
 FUSE_ALL += $(NETCDF) 
 FUSE_ALL += $(SCE)
 
-#=====================
-# PART 3: Compile fuse
-#=====================
+#=============
+# Compile fuse
+#=============
 
 # Define flags based on specified compiler
 ifeq ($(FC),ifort)
@@ -318,19 +346,23 @@ ifeq ($(FC),gfortran)
 endif
 
 # Default flags
-FFLAGS = $(FFLAGS_NORMA)
+FFLAGS = $(FFLAGS_NORMA) -I$(GENINC)
 
 # Target-specific flags for 'debug' target
-debug: FFLAGS = $(FFLAGS_DEBUG)
+debug: FFLAGS = $(FFLAGS_DEBUG) -I$(GENINC)
 debug: compile
 
 # Special provision for gcc>13
 ifeq ($(FC),gfortran)
 
-	GFORTRAN_VERSION := $(shell gfortran -dumpversion | cut -d. -f1)
-  $(info compiler version is $(GFORTRAN_VERSION))
-  GFORTRAN_GT_13 := $(shell expr $(GFORTRAN_VERSION) \>= 13)
-
+  GFORTRAN_VERSION_STR := $(shell gfortran -dumpfullversion -dumpversion 2>/dev/null)
+  GFORTRAN_MAJOR       := $(firstword $(subst ., ,$(GFORTRAN_VERSION_STR)))
+  $(info compiler version is $(GFORTRAN_MAJOR))
+  
+  GFORTRAN_MAJOR ?= 0  # if GFORTRAN_MAJOR is empty
+  
+  GFORTRAN_GT_13 := $(shell [ "$(GFORTRAN_MAJOR)" -ge 13 ] && echo 1 || echo 0)
+  
   ifeq ($(GFORTRAN_GT_13),1)
     FFLAGS += -fallow-argument-mismatch
   endif
@@ -360,7 +392,7 @@ sce_16plus.o: $(SCE_DIR)/sce_16plus.f
 all: compile install clean
 
 # compile target
-compile: sce_16plus.o
+compile: sce_16plus.o $(VERSIONFILE)
 	$(FC) $(FUSE_ALL) $(DRIVER) \
 	$(FFLAGS) $(LIBS) $(INCLUDES) -o $(DRIVER_EX)
 
@@ -376,3 +408,4 @@ install:
 	mv $(DRIVER_EX) $(EXE_PATH)
 
 .PHONY: all compile install clean debug
+.PHONY: $(VERSIONFILE)
