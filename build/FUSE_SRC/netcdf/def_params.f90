@@ -10,10 +10,11 @@ SUBROUTINE DEF_PARAMS(NPAR)
 ! Define NetCDF output files -- parameter variables
 ! ---------------------------------------------------------------------------------------
 USE nrtype                                            ! variable types, etc.
-USE model_defn                                        ! model definition (includes filename)
+USE model_defn, only: FNAME_NETCDF_PARA               ! model definition (includes filename)
 USE metaparams                                        ! metadata for all model parameters
 USE multistats, ONLY: MSTATS                          ! model statistics structure
 USE multistate, only: ncid_out                        ! NetCDF output file ID
+USE globaldata, only: FUSE_VERSION, FUSE_BUILDTIME, FUSE_GITBRANCH, FUSE_GITHASH
 IMPLICIT NONE
 ! input
 INTEGER(I4B), INTENT(IN)               :: NPAR        ! number of parameter sets
@@ -61,6 +62,16 @@ IERR = NF_CREATE(TRIM(FNAME_NETCDF_PARA),NF_CLOBBER,ncid_out); CALL HANDLE_ERR(I
   ! define error messages
  !IERR = NF_DEF_VAR(ncid_out,'error_message',NF_CHAR,3,EVAR,IVAR_ID); CALL HANDLE_ERR(IERR)
 ! end definitions and close file
+
+    ! add global attributes
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "software",        len("FUSE"),              "FUSE");               call HANDLE_ERR(ierr)
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "fuse_version",    len_trim(FUSE_VERSION),   trim(FUSE_VERSION));   call HANDLE_ERR(ierr)
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "fuse_build_time", len_trim(FUSE_BUILDTIME), trim(FUSE_BUILDTIME)); call HANDLE_ERR(ierr)
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "fuse_git_branch", len_trim(FUSE_GITBRANCH), trim(FUSE_GITBRANCH)); call HANDLE_ERR(ierr)
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "fuse_git_hash",   len_trim(FUSE_GITHASH),   trim(FUSE_GITHASH));   call HANDLE_ERR(ierr)
+
+
+
 IERR = NF_ENDDEF(ncid_out)
 IERR = NF_CLOSE(ncid_out)
 ! ---------------------------------------------------------------------------------------

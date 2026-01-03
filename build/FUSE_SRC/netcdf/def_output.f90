@@ -11,7 +11,7 @@ SUBROUTINE DEF_OUTPUT(nSpat1,nSpat2,NPSET,NTIM)
   ! ---------------------------------------------------------------------------------------
 
   USE nrtype                                            ! variable types, etc.
-  USE model_defn                                        ! model definition (includes filename)
+  USE model_defn, only: FNAME_NETCDF_RUNS               ! model definition (includes filename)
   USE metaoutput                                        ! metadata for all model variables
   USE fuse_fileManager,only: Q_ONLY                     ! only write streamflow to output file?
   USE multiforce, only: GRID_FLAG                          ! .true. if distributed
@@ -20,6 +20,8 @@ SUBROUTINE DEF_OUTPUT(nSpat1,nSpat2,NPSET,NTIM)
   USE multiforce, only: latUnits,lonUnits               ! units string
   USE multiforce, only: timeUnits                       ! units string
   USE multistate, only: ncid_out                        ! NetCDF output file ID
+  USE globaldata, only: FUSE_VERSION, FUSE_BUILDTIME, FUSE_GITBRANCH, FUSE_GITHASH
+
 
   IMPLICIT NONE
 
@@ -161,6 +163,13 @@ SUBROUTINE DEF_OUTPUT(nSpat1,nSpat2,NPSET,NTIM)
     ierr = nf_put_att_text(ncid_out,ivar_id,'units',1,'-'); call handle_err(ierr)
   ENDIF
 
+    ! add global attributes
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "software",        len("FUSE"),              "FUSE");               call HANDLE_ERR(ierr)
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "fuse_version",    len_trim(FUSE_VERSION),   trim(FUSE_VERSION));   call HANDLE_ERR(ierr)
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "fuse_build_time", len_trim(FUSE_BUILDTIME), trim(FUSE_BUILDTIME)); call HANDLE_ERR(ierr)
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "fuse_git_branch", len_trim(FUSE_GITBRANCH), trim(FUSE_GITBRANCH)); call HANDLE_ERR(ierr)
+    ierr = NF_PUT_ATT_TEXT(ncid_out, NF_GLOBAL, "fuse_git_hash",   len_trim(FUSE_GITHASH),   trim(FUSE_GITHASH));   call HANDLE_ERR(ierr)
+
   ! end definitions
   IERR = NF_ENDDEF(ncid_out); call handle_err(ierr)
 
@@ -187,6 +196,7 @@ SUBROUTINE DEF_OUTPUT(nSpat1,nSpat2,NPSET,NTIM)
   ELSE
     PRINT *, 'NetCDF file for model runs defined with dimensions', nSpat1 , nSpat2, NTIM
   ENDIF
+
 
   IERR = NF_ENDDEF(ncid_out)
   IERR = NF_CLOSE(ncid_out)
