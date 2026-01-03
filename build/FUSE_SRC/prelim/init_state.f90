@@ -13,6 +13,7 @@ SUBROUTINE INIT_STATE(FRAC)
 ! -----------------
 ! Model states in MODULE multistate
 ! ---------------------------------------------------------------------------------------
+USE nrtype
 USE multiparam                                        ! model parameters
 USE multistate                                        ! model states
 USE multibands                                        ! model snow bands

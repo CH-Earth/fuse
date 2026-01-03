@@ -12,6 +12,7 @@ SUBROUTINE BUCKETSIZE()
 ! -----------------
 ! MODULE multiparam -- bucket sizes stored in MODULE multiparam
 ! ---------------------------------------------------------------------------------------
+USE nrtype
 USE multiparam                                        ! model parameters
 IMPLICIT NONE
 ! ---------------------------------------------------------------------------------------
