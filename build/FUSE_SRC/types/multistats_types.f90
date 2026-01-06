@@ -1,10 +1,21 @@
-MODULE multistats
+MODULE multistats_types
+
  USE nrtype
+
+ implicit none
+ private
+
+ public :: SUMMARY
+ 
+ ! --------------------------------------------------------------------------------------
+
  TYPE SUMMARY
-  ! DMSL diagnostix
+
+   ! DMSL diagnostix
   REAL(SP)                             :: VAR_RESIDUL   ! variance of the model residuals
   REAL(SP)                             :: LOGP_SIMULN   ! log density of the model simulation
   REAL(SP)                             :: JUMP_TAKEN    ! defines a jump in the MCMC production run
+ 
   ! comparisons between model output and observations
   REAL(SP)                             :: QOBS_MEAN     ! mean observed runoff (mm day-1)
   REAL(SP)                             :: QSIM_MEAN     ! mean simulated runoff (mm day-1)
@@ -19,6 +30,7 @@ MODULE multistats
   REAL(SP)                             :: KGEP          ! Kling-Gupta Efficiency' score
   REAL(SP)                             :: MAE           ! Mean absolute error
   REAL(SP)                             :: METRIC_VAL    ! value of the metric chosen as objective function
+ 
   ! attributes of model output
   REAL(SP)                             :: NUM_RMSE      ! error of the approximate solution
   REAL(SP)                             :: NUM_FUNCS     ! number of function calls
@@ -28,12 +40,10 @@ MODULE multistats
   REAL(SP)                             :: NUMSUB_NOCONV ! number of sub-steps tried that did not converge
   INTEGER(I4B)                         :: MAXNUM_ITERNS ! maximum number of iterations in implicit scheme
   REAL(SP), DIMENSION(20)              :: NUMSUB_PROB   ! probability distribution for number of sub-steps
+ 
   ! error checking
   CHARACTER(LEN=1024)                  :: ERR_MESSAGE   ! error message
+ 
  ENDTYPE SUMMARY
- ! final data structures
- TYPE(SUMMARY)                         :: MSTATS        ! (model summary statistics)
- INTEGER(I4B)                          :: MOD_IX=1      ! (model index)
- INTEGER(I4B)                          :: PCOUNT        ! (number of parameter sets in model output files)
- INTEGER(I4B)                          :: FCOUNT        ! (number of model simulations)
-END MODULE multistats
+
+END MODULE multistats_types

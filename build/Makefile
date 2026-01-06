@@ -124,7 +124,8 @@ NUMREC_DIR  = $(FUSE_SOURCE_DIR)numrec
 HOOKUP_DIR  = $(FUSE_SOURCE_DIR)hookup
 DRIVER_DIR  = $(FUSE_SOURCE_DIR)driver
 NETCDF_DIR  = $(FUSE_SOURCE_DIR)netcdf
-DSHARE_DIR  = $(FUSE_SOURCE_DIR)dshare
+SHARE_DIR   = $(FUSE_SOURCE_DIR)share
+TYPES_DIR   = $(FUSE_SOURCE_DIR)types
 PRELIM_DIR  = $(FUSE_SOURCE_DIR)prelim
 RUNTIME_DIR = $(FUSE_SOURCE_DIR)runtime
 PHYSICS_DIR = $(FUSE_SOURCE_DIR)physics
@@ -158,22 +159,43 @@ FUSE_NRUTIL += nrtype.f90
 FUSE_NRUTIL += nr.f90 nrutil.f90
 NRUTIL = $(patsubst %, $(NUMREC_DIR)/%, $(FUSE_NRUTIL))
 
-# Data modules
-FUSE_DATAMS =
-FUSE_DATAMS += model_defn.f90
-#FUSE_DATAMS += data_types.f90
-FUSE_DATAMS += model_defnames.f90
-FUSE_DATAMS += globaldata.f90
-FUSE_DATAMS += multiconst.f90
-FUSE_DATAMS += multiforce.f90
-FUSE_DATAMS += multibands.f90
-FUSE_DATAMS += multiparam.f90
-FUSE_DATAMS += multistate.f90
-FUSE_DATAMS += multi_flux.f90
-FUSE_DATAMS += multiroute.f90
-FUSE_DATAMS += multistats.f90
-FUSE_DATAMS += model_numerix.f90
-DATAMS = $(patsubst %, $(DSHARE_DIR)/%, $(FUSE_DATAMS))
+# Global data (needs to be defined before model_defn)
+G_DATA = $(SHARE_DIR)/globaldata.f90
+
+# Model definition
+FUSE_MODDEF =
+FUSE_MODDEF += $(TYPES_DIR)/model_defn_types.f90
+FUSE_MODDEF += $(SHARE_DIR)/model_defn_data.f90
+MODDEF = $(FUSE_MODDEF) # no patetrn substitution needed
+
+# Data types
+FUSE_TYPES =
+FUSE_TYPES += multiforce_types.f90
+FUSE_TYPES += multibands_types.f90
+FUSE_TYPES += multiparam_types.f90
+FUSE_TYPES += multistate_types.f90
+FUSE_TYPES += multi_flux_types.f90
+FUSE_TYPES += multiroute_types.f90
+FUSE_TYPES += multistats_types.f90
+#FUSE_TYPES += data_types.f90
+TYPES = $(patsubst %, $(TYPES_DIR)/%, $(FUSE_TYPES))
+
+# combined type+data (mimic legacy code)
+FUSE_SHARE =
+FUSE_SHARE += multiconst.f90
+FUSE_SHARE += model_defnames.f90
+FUSE_SHARE += model_numerix.f90
+FUSE_SHARE += multiforce_data.f90
+FUSE_SHARE += multibands_data.f90
+FUSE_SHARE += multiparam_data.f90
+FUSE_SHARE += multistate_data.f90
+FUSE_SHARE += multi_flux_data.f90
+FUSE_SHARE += multiroute_data.f90
+FUSE_SHARE += multistats_data.f90
+SHARE = $(patsubst %, $(SHARE_DIR)/%, $(FUSE_SHARE))
+
+# combine data modules together
+DATAMS = $(G_DATA) $(MODDEF) $(TYPES) $(SHARE)
 
 # Time I/O modules
 FUSE_TIMEMS =
