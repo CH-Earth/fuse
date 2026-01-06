@@ -1,12 +1,21 @@
-! ---------------------------------------------------------------------------------------
-! Creator:
-! --------
-! Martyn Clark
-! Modified by Brian Henn to include snow model, 6/2013
-! ---------------------------------------------------------------------------------------
-MODULE multiparam
+MODULE multiparam_types
+ 
+ ! ---------------------------------------------------------------------------------------
+ ! Creator:
+ ! --------
+ ! Martyn Clark
+ ! Modified by Brian Henn to include snow model, 6/2013
+ ! Modified by Martyn Clark to separate type definitions from data storage, 01/2026
+ ! ---------------------------------------------------------------------------------------
+ 
  USE nrtype
- USE model_defn,ONLY:NTDH_MAX
+ USE model_defn, ONLY: NTDH_MAX
+ 
+ implicit none
+ private
+
+ public :: PARATT, PARINFO, PARADJ, PARDVD, PAR_ID
+
  ! --------------------------------------------------------------------------------------
  ! (1) PARAMETER METADATA
  ! --------------------------------------------------------------------------------------
@@ -29,6 +38,7 @@ MODULE multiparam
   CHARACTER(LEN=256)                   :: CHILD1      ! name of 1st parameter child
   CHARACTER(LEN=256)                   :: CHILD2      ! name of 2nd parameter child
  END TYPE PARATT
+ 
  ! data structure to hold metadata for each parameter
  TYPE PARINFO
   ! rainfall error parameters (adjustable)
@@ -78,6 +88,7 @@ MODULE multiparam
   TYPE(PARATT)                         :: OPG         ! precipitation gradient (-) 
   TYPE(PARATT)                         :: LAPSE       ! temperature gradient (deg. C)
  ENDTYPE PARINFO
+ 
  ! --------------------------------------------------------------------------------------
  ! (2) ADJUSTABLE PARAMETERS
  ! --------------------------------------------------------------------------------------
@@ -129,6 +140,7 @@ MODULE multiparam
   REAL(SP)                             :: OPG         ! precipitation gradient (-) 
   REAL(SP)                             :: LAPSE       ! temperature gradient (deg. C)
  END TYPE PARADJ
+ 
  ! --------------------------------------------------------------------------------------
  ! (3) DERIVED PARAMETERS
  ! --------------------------------------------------------------------------------------
@@ -153,22 +165,12 @@ MODULE multiparam
   REAL(SP), DIMENSION(NTDH_MAX)        :: FRAC_FUTURE ! fraction of runoff in future time steps
   INTEGER(I4B)                         :: NTDH_NEED   ! number of time-steps with non-zero routing contribution
  END TYPE PARDVD
+ 
  ! --------------------------------------------------------------------------------------
  ! (4) LIST OF PARAMETERS FOR A GIVEN MODEL
  ! --------------------------------------------------------------------------------------
  TYPE PAR_ID
   CHARACTER(LEN=9)                     :: PARNAME     ! list of parameter names
  ENDTYPE PAR_ID
- ! --------------------------------------------------------------------------------------
- ! (5) FINAL DATA STRUCTURES
- ! --------------------------------------------------------------------------------------
- INTEGER(I4B), PARAMETER               :: MAXPAR=50   ! maximum number of parameters for a single model
- TYPE(PARADJ), DIMENSION(:), POINTER   :: APARAM=>null()  ! all model parameter sets; DK/2008/10/21: explicit null
- TYPE(PARADJ)                          :: MPARAM      ! single model parameter set
- TYPE(PARDVD)                          :: DPARAM      ! derived model parameters
- TYPE(PARINFO)                         :: PARMETA     ! parameter metadata (all parameters)
- TYPE(PAR_ID), DIMENSION(MAXPAR)       :: LPARAM      ! list of model parameter names (need to modify to 16 for SCE)
- INTEGER(I4B)                          :: NUMPAR      ! number of model parameters for current model
- INTEGER(I4B)                          :: SOBOL_INDX  ! code to re-assemble Sobol parameters
- ! --------------------------------------------------------------------------------------
-END MODULE multiparam
+ 
+END MODULE multiparam_types

@@ -1,5 +1,12 @@
-MODULE multi_flux
+MODULE multi_flux_types
+
  USE nrtype
+
+ implicit none
+ private
+
+ public :: FLUXES
+
  TYPE FLUXES
   REAL(SP)                             :: EFF_PPT     ! effective precipitation (mm day-1)
   REAL(SP)                             :: SATAREA     ! saturated area (-)
@@ -32,11 +39,5 @@ MODULE multi_flux
   REAL(SP)                             :: ERR_FREE_2B ! excessive extrapolation: storage in the secondary resvr (mm day-1)
   REAL(SP)                             :: CHK_TIME    ! time elapsed during time step (days)
  ENDTYPE FLUXES
- TYPE(FLUXES)                          :: M_FLUX      ! model fluxes
- TYPE(FLUXES)                          :: FLUX_0      ! model fluxes at start of step
- TYPE(FLUXES)                          :: FLUX_1      ! model fluxes at end of step
- TYPE(FLUXES), DIMENSION(:), POINTER   :: FDFLUX=>NULL() ! finite difference fluxes
- TYPE(FLUXES)                          :: W_FLUX      ! weighted sum of model fluxes over a time step
- TYPE(FLUXES), dimension(:,:,:), allocatable  :: W_FLUX_3d   ! weighted sum of model fluxes over a time step for several time steps
- REAL(SP)                              :: CURRENT_DT  ! current time step (days)
-END MODULE multi_flux
+
+END MODULE multi_flux_types
