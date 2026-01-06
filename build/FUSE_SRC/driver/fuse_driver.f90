@@ -452,6 +452,9 @@ ELSE IF(fuse_mode == 'calib_sce')THEN ! calibrate FUSE using SCE
   print *, 'Creating SCE output file:', trim(FNAME_ASCII)
   ISCE = 96; OPEN(ISCE,FILE=TRIM(FNAME_ASCII))
 
+  ! set random seed
+  ISEED = 1
+
   ! optimize (returns A and AF)
   ! note that SCE requires the kind of APAR, BL, BU to be MSP
   CALL SCEUA(APAR_MSP,AF_MSP,BL_MSP,BU_MSP,NOPT,MAXN,KSTOP,PCENTO,ISEED,&
