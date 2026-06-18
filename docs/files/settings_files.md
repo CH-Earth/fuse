@@ -30,7 +30,7 @@ FUSE has a number of modeling decisions, with the following options:
 - QSURF: surface runoff
 	- prms_varnt: [Eq. 9a]         PRMS variant (fraction of upper tension storage)
 	- arno_x_vic: [Eq. 9b]         ARNO/Xzang/VIC parameterization (upper zone control)
-	- tmdl_varnt: [Eq. 9c]         TOPMODEL parameterization (only valid for TOPMODEL qb)
+	- tmdl_param: [Eq. 9c]         TOPMODEL parameterization (only valid for TOPMODEL qb)
 
 - QPERC: percolation
 	- perc_f2sat: [Eq. 4a]         water from (field capacity to saturation) available for percolation
