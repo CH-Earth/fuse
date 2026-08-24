@@ -3,7 +3,7 @@
 [filepaths]
 settings_dir = "test/CAN_05BB001/lumped/settings/fuse_v2/"
 input_dir    = "test/CAN_05BB001/lumped/input/"
-output_dir   = "test/CAN_05BB001/lumped/work/"
+output_dir   = "test/CAN_05BB001/lumped/output/"
 
 [input]
 hydromet_suffix   = "_daymet_qobs_merged.nc"
