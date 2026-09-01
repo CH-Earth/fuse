@@ -114,6 +114,8 @@ module info_types
   integer(i4b),      allocatable :: varid(:)
   integer(i4b),      allocatable :: ndims(:)
   real(wp),          allocatable :: multiplier(:)
+  real(wp),          allocatable :: fill_value(:)
+  logical(lgt),      allocatable :: has_fill_value(:)
  end type
 
  ! ---

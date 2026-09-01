@@ -5,6 +5,7 @@ use info_types, only: fuse_info
 use domain_types, only: domain_data
 
 use netcdf
+use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
 
 use fuse_globaldata, only: NA_VALUE
 use fuse_globaldata, only: NVAR_HYDROMET
@@ -28,6 +29,7 @@ contains
   character(*), intent(out)      :: message
 
   integer(i4b) :: ivar
+  integer(i4b) :: ierr_att
   character(len=256) :: cmessage
 
   ierr = 0
@@ -61,6 +63,41 @@ contains
                 trim(info%files%hydromet%name(ivar))//"': "//            &
                 trim(nf90_strerror(ierr))
       return
+    end if
+
+    ! get missing value metadata
+    ierr_att = nf90_get_att(ncid, info%files%hydromet%varid(ivar), "_FillValue", &
+                            info%files%hydromet%fill_value(ivar))
+
+    if (ierr_att == nf90_noerr) then
+
+      info%files%hydromet%has_fill_value(ivar) = .true.
+
+    else if (ierr_att == nf90_enotatt) then
+
+      ! Backward compatibility with NetCDF files using missing_value
+      ierr_att = nf90_get_att(ncid, info%files%hydromet%varid(ivar), "missing_value", &
+                              info%files%hydromet%fill_value(ivar))
+
+      if (ierr_att == nf90_noerr) then
+        info%files%hydromet%has_fill_value(ivar) = .true.
+
+      else if (ierr_att /= nf90_enotatt) then
+        ierr = ierr_att
+        message = trim(message)//"cannot read missing_value for variable '"// &
+                  trim(info%files%hydromet%name(ivar))//"': "//             &
+                  trim(nf90_strerror(ierr))
+        return
+      end if
+
+    else
+
+      ierr = ierr_att
+      message = trim(message)//"cannot read _FillValue for variable '"// &
+                trim(info%files%hydromet%name(ivar))//"': "//           &
+                trim(nf90_strerror(ierr))
+      return
+
     end if
 
     ! get unit conversion
@@ -241,7 +278,22 @@ contains
     return
   end if
 
-  qobs(:,1:numtim) = qobs(:,1:numtim) * info%files%hydromet%multiplier(iQOBS)
+  ! Normalize missing observations before unit conversion
+  where (ieee_is_nan(qobs(:,1:numtim)))
+    qobs(:,1:numtim) = real(NA_VALUE, wp)
+  end where
+
+  if (info%files%hydromet%has_fill_value(iQOBS)) then
+    where (qobs(:,1:numtim) == info%files%hydromet%fill_value(iQOBS))
+      qobs(:,1:numtim) = real(NA_VALUE, wp)
+    end where
+  end if
+
+  ! Convert valid streamflow observations to FUSE internal units
+  where (qobs(:,1:numtim) /= real(NA_VALUE, wp))
+    qobs(:,1:numtim) = qobs(:,1:numtim) * &
+                       info%files%hydromet%multiplier(iQOBS)
+  end where
 
   end subroutine read_qobs_data
 

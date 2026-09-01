@@ -69,9 +69,14 @@ CONTAINS
            info%files%hydromet%units(NVAR_HYDROMET), &
            info%files%hydromet%varid(NVAR_HYDROMET), &
            info%files%hydromet%ndims(NVAR_HYDROMET), &
-           info%files%hydromet%multiplier(NVAR_HYDROMET), stat=ierr)
+           info%files%hydromet%multiplier(NVAR_HYDROMET), &
+           info%files%hydromet%fill_value(NVAR_HYDROMET), &
+           info%files%hydromet%has_fill_value(NVAR_HYDROMET), &
+           stat=ierr)
   if(ierr/=0)then; message=trim(message)//"cannot allocate hydromet lookup table"; return; endif
   info%files%hydromet%multiplier(:) = -1._wp
+  info%files%hydromet%fill_value(:)     = 0._wp
+  info%files%hydromet%has_fill_value(:) = .false.
 
   end subroutine allocate_domain_data
 
